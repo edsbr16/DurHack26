@@ -17,6 +17,7 @@ import {
   ShieldAlert,
 } from "lucide-react";
 import { WebRTCPublisher } from "../../lib/webrtc";
+import { createPitchVoice, PitchVoice } from "../../lib/voicePitch";
 import { AudioMeter } from "../../components/AudioMeter";
 import { BackendSettingsModal } from "../../components/BackendSettingsModal";
 import { PinchOverlay, PinchData } from "../../components/PinchOverlay";
@@ -26,6 +27,7 @@ function StreamContent() {
   const previewVideoRef = useRef<HTMLVideoElement | null>(null);
   const publisherRef = useRef<WebRTCPublisher | null>(null);
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
+  const pitchVoiceRef = useRef<PitchVoice | null>(null);
 
   const [streamId, setStreamId] = useState<string>("");
   const [clientName, setClientName] = useState<string>("");
@@ -89,6 +91,9 @@ function StreamContent() {
     };
   }, [isStreaming]);
 
+  // Dispose the pitch-shift voice if the page unmounts mid-stream.
+  useEffect(() => () => pitchVoiceRef.current?.dispose(), []);
+
   // Live pinch tracking for our own stream: the backend runs MediaPipe on our
   // WebRTC frames and echoes pinch_update events over the stats websocket.
   useEffect(() => {
@@ -108,6 +113,8 @@ function StreamContent() {
               pinching: msg.pinching,
               landmarks: msg.landmarks,
             });
+            // Same event drives the voice: closer fingers → lower pitch.
+            pitchVoiceRef.current?.setPinch(msg.pinch, msg.hand);
           }
         } catch {
           // ignore parsing error
@@ -132,6 +139,13 @@ function StreamContent() {
   const startStream = async () => {
     setErrorMsg(null);
     try {
+      // Create the AudioContext synchronously inside the click (iOS gesture
+      // rule), then hand its processed stream to the publisher.
+      if (isAudioEnabled) {
+        pitchVoiceRef.current?.dispose();
+        pitchVoiceRef.current = createPitchVoice();
+      }
+
       const publisher = new WebRTCPublisher({
         streamId: streamId.trim() || `stream-${Date.now()}`,
         clientName: clientName.trim() || "Mobile Camera",
@@ -139,6 +153,10 @@ function StreamContent() {
         facingMode,
         audioEnabled: isAudioEnabled,
         videoEnabled: isVideoEnabled,
+        processAudio: (raw) => {
+          pitchVoiceRef.current?.attach(raw);
+          return pitchVoiceRef.current?.outputStream ?? raw;
+        },
         onConnectionStateChange: (state) => {
           setConnState(state);
           if (state === "failed" || state === "closed") {
@@ -173,6 +191,8 @@ function StreamContent() {
       publisherRef.current.stop();
       publisherRef.current = null;
     }
+    pitchVoiceRef.current?.dispose();
+    pitchVoiceRef.current = null;
     if (previewVideoRef.current) {
       previewVideoRef.current.srcObject = null;
     }

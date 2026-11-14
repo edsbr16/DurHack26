@@ -109,9 +109,10 @@ Deploy to the included Vultr Terraform infrastructure with SSL / Let's Encrypt (
 Every stream's frames run through a shared MediaPipe `HandLandmarker` in the backend (`backend/hand_tracker.py`) at ~12Hz per stream:
 
 - **What's tracked:** the thumb tip (landmark 4) and index tip (landmark 8) — drawn live on the streamer's viewfinder and on every dashboard tile: hand skeleton, fingertip dots, pinch line, live score, and a **PINCH CAPTURED** badge.
+- **Voice harmonizer:** the streamer's own pinch plays harmony under their voice — dry voice always on top, a chromatic stepped layer beneath (open hand = unison, fingers together = an octave down at −12 semitones, ~35% level). Steps commit after two identical readings and glide, so boundaries never trill; losing the hand ~0.4s returns to unison.
 - **Scale-invariant score:** thumb-to-index distance is normalised by the wrist→middle-MCP distance, so it works at any distance from the camera. 0 = fingertips together, 1 = open hand. The badge uses hysteresis (enter below 0.20, exit above 0.28).
 - **Transport:** broadcast on the `/api/ws` WebSocket as `pinch_update` events (`{stream_id, hand, pinch, pinching, landmarks}`) and included in `/api/streams` stats.
-- **Deliberately display-only:** nothing acts on pinches yet — wiring a reaction (audio, visuals, events) is just a matter of subscribing to `pinch_update` on the client.
+- **Deliberately gentle:** pinch drives only the streamer's own voice pitch — no other room behaviour is tied to it yet.
 - **Graceful degradation:** if `mediapipe` isn't installed or no hand is in frame, tracking simply reports "no hand" — the stream itself never suffers.
 
 ---
