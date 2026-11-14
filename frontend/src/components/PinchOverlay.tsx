@@ -138,7 +138,7 @@ export const PinchOverlay: React.FC<PinchOverlayProps> = ({
         [ix, iy],
       ]) {
         ctx.beginPath();
-        ctx.fillStyle = "#818cf8";
+        ctx.fillStyle = "#bf552f";
         ctx.arc(px, py, 7, 0, Math.PI * 2);
         ctx.fill();
         ctx.strokeStyle = "#10131c";

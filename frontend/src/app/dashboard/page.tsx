@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, Suspense } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { QRCodeSVG } from "qrcode.react";
 import {
-  Video,
   QrCode,
   Settings,
   RefreshCw,
@@ -19,7 +19,7 @@ import { PinchData } from "../../components/PinchOverlay";
 import { BackendSettingsModal } from "../../components/BackendSettingsModal";
 import { getBackendUrl, getBackendWsUrl } from "../../lib/config";
 
-export default function DashboardPage() {
+function DashboardContent() {
   const [streams, setStreams] = useState<StreamItemData[]>([]);
   const [pinchMap, setPinchMap] = useState<Record<string, PinchData>>({});
   const [serverOnline, setServerOnline] = useState<boolean | null>(null);
@@ -31,13 +31,22 @@ export default function DashboardPage() {
 
   const wsRef = useRef<WebSocket | null>(null);
 
-  // Setup streaming URL for QR code
+  // The room lives in the URL (?room=CODE) — deep-linkable and carried by the QR.
+  const room = (useSearchParamsRoom() ?? "").toUpperCase();
+
+  // Streams in this room: roomless streams show everywhere as a safety net,
+  // so a mistyped code can never make a camera silently invisible.
+  const roomStreams = streams.filter(
+    (s) => !room || !s.room || s.room === room
+  );
+
+  // The join URL phones scan — includes the room so their cameras land here.
   useEffect(() => {
     if (typeof window !== "undefined") {
-      const url = `${window.location.origin}/stream`;
+      const url = `${window.location.origin}/stream${room ? `?room=${room}` : ""}`;
       setPhoneUrl(url);
     }
-  }, []);
+  }, [room]);
 
   // Poll backend health and streams
   const fetchStreams = async () => {
@@ -70,7 +79,7 @@ export default function DashboardPage() {
 
   // WebSocket for live room events
   useEffect(() => {
-    let reconnectTimer: NodeJS.Timeout;
+    let reconnectTimer: ReturnType<typeof setTimeout>;
 
     function connectWs() {
       const wsUrl = `${getBackendWsUrl()}/api/ws`;
@@ -186,7 +195,7 @@ export default function DashboardPage() {
   // Determine grid layout classes
   const getGridClass = () => {
     if (soloStreamId) return "grid-cols-1";
-    const count = streams.length;
+    const count = roomStreams.length;
     if (count <= 1) return "grid-cols-1 max-w-4xl mx-auto";
     if (count === 2) return "grid-cols-1 md:grid-cols-2";
     if (count <= 4) return "grid-cols-1 sm:grid-cols-2 lg:grid-cols-2";
@@ -195,68 +204,65 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="min-h-screen bg-neutral-950 text-white flex flex-col">
+    <div className="min-h-screen bg-paper text-ink flex flex-col">
       {/* Header Bar */}
-      <header className="sticky top-0 z-30 px-6 py-4 bg-neutral-900/90 backdrop-blur-md border-b border-neutral-800 flex items-center justify-between shadow-lg">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-2xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-            <Video className="w-5 h-5" />
-          </div>
-          <div>
-            <h1 className="text-base font-bold tracking-tight text-white flex items-center gap-2">
-              Central Stream Dashboard
-              <span className="hidden sm:inline-flex px-2 py-0.5 rounded-full text-[11px] font-semibold bg-neutral-800 text-neutral-300 border border-neutral-700">
-                Host Mode
-              </span>
-            </h1>
-            <p className="text-xs text-neutral-400">
-              Live WebRTC ingest & central multi-camera monitor
-            </p>
-          </div>
+      <header className="sticky top-0 z-30 px-6 py-4 bg-surface border-b border-line flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3 min-w-0">
+          <Link href="/" className="flex items-center gap-2 shrink-0">
+            <svg width="22" height="22" viewBox="0 0 26 26" fill="none" aria-hidden="true" className="text-clay shrink-0">
+              <path
+                d="M5 21 C7 12, 13 5, 22 4 C21 13, 14 20, 6 22 M6 22 C9 17, 13 13, 18 10"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+            <span className="font-display text-lg tracking-tight hidden sm:block">Natural Composition</span>
+          </Link>
+          {room && (
+            <span className="font-mono text-xs tracking-widest px-2.5 py-1 rounded-lg bg-clay-tint text-clay-deep border border-clay/20 tabular-nums">
+              ROOM {room}
+            </span>
+          )}
         </div>
 
-        <div className="flex items-center gap-2.5">
-          {/* Server Status Pill */}
-          <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-neutral-950 border border-neutral-800 text-xs">
+        <div className="flex items-center gap-2">
+          {/* Server Status */}
+          <span className="hidden sm:flex items-center gap-1.5 text-xs text-ink-soft tabular-nums">
             <span
-              className={`w-2 h-2 rounded-full ${
+              className={`w-1.5 h-1.5 rounded-full ${
                 serverOnline === true
-                  ? "bg-emerald-500 animate-pulse"
+                  ? "bg-emerald-600"
                   : serverOnline === false
-                  ? "bg-rose-500"
-                  : "bg-neutral-500"
+                  ? "bg-rose-600"
+                  : "bg-amber-500"
               }`}
             />
-            <span className="text-neutral-300 font-medium">
-              {serverOnline === true
-                ? "Backend Connected"
-                : serverOnline === false
-                ? "Backend Offline"
-                : "Checking..."}
-            </span>
-          </div>
+            {serverOnline === true ? "Backend connected" : serverOnline === false ? "Backend offline" : "Checking…"}
+          </span>
 
-          {/* Active streams count */}
-          <div className="px-3 py-1.5 rounded-xl bg-indigo-950/60 border border-indigo-500/30 text-indigo-300 text-xs font-semibold">
-            {streams.length} {streams.length === 1 ? "Camera" : "Cameras"}
-          </div>
+          {/* Cameras count */}
+          <span className="px-2.5 py-1.5 rounded-lg border border-line bg-paper text-ink-soft text-xs font-medium tabular-nums">
+            {roomStreams.length} {roomStreams.length === 1 ? "camera" : "cameras"}
+          </span>
 
-          {/* Add Streamer / QR Code Button */}
+          {/* Invite Phones / QR */}
           <button
             type="button"
             onClick={() => setIsQrModalOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-lg shadow-indigo-600/20 transition-all active:scale-95"
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-clay hover:bg-clay-deep text-white text-xs font-semibold transition-colors"
           >
             <QrCode className="w-4 h-4" />
             <span className="hidden md:inline">Connect Phone</span>
           </button>
 
-          {/* Refresh Streams */}
+          {/* Refresh */}
           <button
             type="button"
             onClick={fetchStreams}
-            className="p-2 rounded-xl bg-neutral-800/80 hover:bg-neutral-700 text-neutral-300 border border-neutral-700 transition-colors"
-            title="Refresh streams"
+            aria-label="Refresh streams"
+            className="p-2 rounded-lg text-ink-soft hover:text-ink hover:bg-paper border border-line transition-colors"
           >
             <RefreshCw className="w-4 h-4" />
           </button>
@@ -265,8 +271,8 @@ export default function DashboardPage() {
           <button
             type="button"
             onClick={() => setIsSettingsOpen(true)}
-            className="p-2 rounded-xl bg-neutral-800/80 hover:bg-neutral-700 text-neutral-300 border border-neutral-700 transition-colors"
-            title="Backend Settings"
+            aria-label="Backend settings"
+            className="p-2 rounded-lg text-ink-soft hover:text-ink hover:bg-paper border border-line transition-colors"
           >
             <Settings className="w-4 h-4" />
           </button>
@@ -275,52 +281,53 @@ export default function DashboardPage() {
 
       {/* Main Content Area */}
       <main className="flex-1 p-6 max-w-7xl mx-auto w-full flex flex-col justify-center">
-        {streams.length === 0 ? (
-          /* Empty State: Prompt users to scan QR code with phone */
-          <div className="my-auto flex flex-col items-center justify-center text-center p-8 border border-neutral-800/80 bg-neutral-900/40 backdrop-blur-md rounded-3xl max-w-xl mx-auto shadow-2xl">
-            <div className="p-4 bg-white rounded-2xl shadow-xl mb-6">
+        {roomStreams.length === 0 ? (
+          /* Empty State: invite phones */
+          <div className="my-auto flex flex-col items-center justify-center text-center p-8 border border-line bg-surface rounded-xl max-w-xl mx-auto">
+            <div className="p-4 bg-white rounded-lg border border-line mb-6">
               {phoneUrl ? (
                 <QRCodeSVG value={phoneUrl} size={180} level="M" />
               ) : (
-                <div className="w-[180px] h-[180px] bg-neutral-100 flex items-center justify-center text-neutral-400">
-                  Generating QR...
+                <div className="w-[180px] h-[180px] bg-paper flex items-center justify-center text-ink-soft">
+                  Generating…
                 </div>
               )}
             </div>
 
-            <h2 className="text-xl font-bold text-white mb-2">
-              Connect a Phone Camera
+            <h2 className="font-display text-2xl tracking-tight mb-2 text-wrap-balance">
+              Connect a phone camera
             </h2>
-            <p className="text-xs text-neutral-400 max-w-md leading-relaxed mb-6">
-              Point your smartphone camera at this QR code or navigate to{" "}
-              <code className="text-indigo-400 font-mono font-medium">/stream</code> to
-              broadcast live video and audio directly to this screen.
+            <p className="text-xs text-ink-soft max-w-md leading-relaxed mb-6">
+              Point a smartphone at this code, or open{" "}
+              <code className="font-mono text-clay-deep">/stream</code> in its
+              browser, to broadcast live video and audio to this screen
+              {room ? " and join this room" : ""}.
             </p>
 
             <div className="flex flex-wrap items-center justify-center gap-3">
               <button
                 type="button"
                 onClick={handleCopyUrl}
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-xs font-medium text-neutral-200 transition-all border border-neutral-700"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-line bg-paper hover:border-ink/40 text-xs font-medium text-ink transition-colors"
               >
-                {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
-                {copied ? "Link Copied!" : "Copy Stream Link"}
+                {copied ? <Check className="w-4 h-4 text-emerald-700" /> : <Copy className="w-4 h-4" />}
+                {copied ? "Link copied" : "Copy join link"}
               </button>
 
               <Link
-                href="/stream"
+                href={`/stream${room ? `?room=${room}` : ""}`}
                 target="_blank"
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600/90 hover:bg-indigo-500 text-xs font-semibold text-white transition-all shadow-md"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-ink text-paper hover:bg-ink/85 text-xs font-semibold transition-colors"
               >
                 <ExternalLink className="w-4 h-4" />
-                Test Stream in New Tab
+                Test stream in new tab
               </Link>
             </div>
           </div>
         ) : (
           /* Active Streams Grid */
           <div className={`grid gap-6 ${getGridClass()}`}>
-            {streams
+            {roomStreams
               .filter((s) => !soloStreamId || s.stream_id === soloStreamId)
               .map((stream) => (
                 <StreamPlayer
@@ -338,46 +345,48 @@ export default function DashboardPage() {
 
       {/* QR Code Invitation Modal */}
       {isQrModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="relative w-full max-w-sm bg-neutral-900 border border-neutral-800 rounded-3xl p-6 text-center text-white shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/40">
+          <div className="relative w-full max-w-sm bg-surface border border-line rounded-xl p-6 text-center text-ink shadow-sm">
             <button
               type="button"
               onClick={() => setIsQrModalOpen(false)}
-              className="absolute top-4 right-4 p-1.5 rounded-lg text-neutral-400 hover:text-white hover:bg-neutral-800"
+              aria-label="Close"
+              className="absolute top-4 right-4 p-1.5 rounded-lg text-ink-soft hover:text-ink hover:bg-paper transition-colors"
             >
               <X className="w-5 h-5" />
             </button>
 
-            <h3 className="text-lg font-bold mb-1">Scan to Stream</h3>
-            <p className="text-xs text-neutral-400 mb-5">
-              Scan with your smartphone camera to open the streamer app.
+            <h3 className="font-display text-xl tracking-tight mb-1">Scan to join</h3>
+            <p className="text-xs text-ink-soft mb-5">
+              Opens the streamer page{room ? ` in room ${room}` : ""} on the phone.
             </p>
 
-            <div className="p-4 bg-white rounded-2xl inline-block shadow-lg mb-5">
+            <div className="p-4 bg-white rounded-lg border border-line inline-block mb-5">
               {phoneUrl && <QRCodeSVG value={phoneUrl} size={200} level="M" />}
             </div>
 
             <div className="space-y-3">
-              <div className="flex items-center gap-2 p-2 bg-neutral-950 border border-neutral-800 rounded-xl">
+              <div className="flex items-center gap-2 p-2 bg-paper border border-line rounded-lg">
                 <input
                   type="text"
                   readOnly
+                  aria-label="Join URL"
                   value={phoneUrl}
-                  className="bg-transparent text-xs font-mono text-neutral-300 w-full focus:outline-none px-1"
+                  className="bg-transparent text-xs font-mono text-ink-soft w-full px-1"
                 />
                 <button
                   type="button"
                   onClick={handleCopyUrl}
-                  className="p-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-200 transition-colors"
-                  title="Copy link"
+                  aria-label="Copy join link"
+                  className="p-1.5 rounded-lg bg-surface border border-line hover:border-ink/40 text-ink transition-colors"
                 >
-                  {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+                  {copied ? <Check className="w-4 h-4 text-emerald-700" /> : <Copy className="w-4 h-4" />}
                 </button>
               </div>
 
-              <div className="flex items-center gap-2 text-[11px] text-amber-400/90 text-left bg-amber-950/40 p-2.5 rounded-xl border border-amber-800/40">
-                <ShieldAlert className="w-4 h-4 shrink-0" />
-                <span>Mobile browsers require HTTPS for camera permission on external networks.</span>
+              <div className="flex items-center gap-2 text-[11px] text-ink-soft text-left bg-paper p-2.5 rounded-lg border border-line">
+                <ShieldAlert className="w-4 h-4 shrink-0 text-clay" />
+                <span>Phone browsers need HTTPS for camera access — use a tunnel when off-localhost.</span>
               </div>
             </div>
           </div>
@@ -390,5 +399,19 @@ export default function DashboardPage() {
         onClose={() => setIsSettingsOpen(false)}
       />
     </div>
+  );
+}
+
+// useSearchParams needs a Suspense boundary in production builds (Next.js rule).
+function useSearchParamsRoom(): string | null {
+  const searchParams = useSearchParams();
+  return searchParams.get("room");
+}
+
+export default function DashboardPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-paper" />}>
+      <DashboardContent />
+    </Suspense>
   );
 }

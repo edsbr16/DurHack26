@@ -44,6 +44,7 @@ class OfferModel(BaseModel):
     type: str
     stream_id: Optional[str] = None
     client_name: Optional[str] = None
+    room: Optional[str] = None
     device_info: Optional[Dict[str, Any]] = None
 
 
@@ -97,6 +98,7 @@ async def publish_stream(offer_data: OfferModel):
     stream_info = await stream_manager.register_stream(
         stream_id=stream_id,
         client_name=client_name,
+        room=(offer_data.room or "").strip().upper() or None,
         device_info=device_info,
         pc=pc,
     )

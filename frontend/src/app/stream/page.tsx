@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, Suspense } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   Camera,
   Video,
@@ -21,7 +22,7 @@ import { BackendSettingsModal } from "../../components/BackendSettingsModal";
 import { PinchOverlay, PinchData } from "../../components/PinchOverlay";
 import { getBackendWsUrl } from "../../lib/config";
 
-export default function StreamPage() {
+function StreamContent() {
   const previewVideoRef = useRef<HTMLVideoElement | null>(null);
   const publisherRef = useRef<WebRTCPublisher | null>(null);
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
@@ -39,6 +40,9 @@ export default function StreamPage() {
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
   const [isSecureContextIssue, setIsSecureContextIssue] = useState<boolean>(false);
   const [pinch, setPinch] = useState<PinchData | undefined>(undefined);
+
+  // The room comes from the join link (?room=CODE) — sent with every publish.
+  const room = (useSearchParams().get("room") ?? "").toUpperCase();
 
   // Initialize unique random stream ID and default name
   useEffect(() => {
@@ -131,6 +135,7 @@ export default function StreamPage() {
       const publisher = new WebRTCPublisher({
         streamId: streamId.trim() || `stream-${Date.now()}`,
         clientName: clientName.trim() || "Mobile Camera",
+        room: room || undefined,
         facingMode,
         audioEnabled: isAudioEnabled,
         videoEnabled: isVideoEnabled,
@@ -206,44 +211,45 @@ export default function StreamPage() {
   };
 
   return (
-    <div className="min-h-screen bg-black text-white flex flex-col justify-between select-none relative overflow-hidden">
-      {/* Top Header Bar */}
-      <header className="z-20 px-4 py-3 bg-gradient-to-b from-black/90 via-black/50 to-transparent flex items-center justify-between">
-        <div className="flex items-center gap-3">
+    <div className="min-h-screen flex flex-col select-none">
+      {/* Top Header Bar — light paper chrome */}
+      <header className="z-20 px-4 py-3 bg-surface border-b border-line flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
           <Link
             href="/"
-            className="p-2 -ml-1 rounded-xl bg-neutral-900/80 hover:bg-neutral-800 text-neutral-300 border border-white/10 transition-colors"
+            aria-label="Back to home"
+            className="p-2 -ml-1 rounded-lg text-ink-soft hover:text-ink hover:bg-paper border border-transparent hover:border-line transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
           </Link>
-          <div>
+          <div className="min-w-0">
             <div className="flex items-center gap-2">
               <span
-                className={`w-2.5 h-2.5 rounded-full ${
+                className={`w-2 h-2 rounded-full shrink-0 ${
                   isStreaming && connState === "connected"
-                    ? "bg-rose-500 animate-ping"
+                    ? "bg-rose-600 motion-safe:animate-pulse"
                     : isStreaming
-                    ? "bg-amber-400 animate-pulse"
-                    : "bg-neutral-600"
+                    ? "bg-amber-500"
+                    : "bg-ink-soft/40"
                 }`}
               />
-              <h1 className="text-sm font-semibold tracking-tight">
+              <h1 className="text-sm font-semibold tracking-tight truncate">
                 {isStreaming
                   ? connState === "connected"
-                    ? "LIVE STREAMING"
-                    : "CONNECTING..."
-                  : "CAMERA READY"}
+                    ? "Live streaming"
+                    : "Connecting…"
+                  : "Camera ready"}
               </h1>
             </div>
-            <p className="text-[11px] text-neutral-400 font-mono">
-              ID: {streamId} • {clientName}
+            <p className="text-[11px] text-ink-soft font-mono truncate">
+              {room ? `Room ${room} · ` : ""}ID {streamId}
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
           {activeStream && (
-            <div className="px-2.5 py-1 rounded-lg bg-neutral-900/80 border border-white/10 flex items-center gap-1.5">
+            <div className="px-2 py-1 rounded-lg bg-paper border border-line flex items-center gap-1.5">
               <AudioMeter stream={activeStream} />
             </div>
           )}
@@ -251,17 +257,16 @@ export default function StreamPage() {
           <button
             type="button"
             onClick={() => setIsSettingsOpen(true)}
-            className="p-2 rounded-xl bg-neutral-900/80 hover:bg-neutral-800 text-neutral-300 border border-white/10 transition-colors"
-            title="Settings"
+            aria-label="Backend settings"
+            className="p-2 rounded-lg text-ink-soft hover:text-ink hover:bg-paper border border-line transition-colors"
           >
             <Settings className="w-4 h-4" />
           </button>
         </div>
       </header>
 
-      {/* Camera Viewfinder (Main Area) */}
-      <main className="flex-1 relative flex items-center justify-center bg-neutral-950 overflow-hidden">
-        {/* Live Video Preview */}
+      {/* Camera Viewfinder (dark area — video is video) */}
+      <main className="flex-1 relative flex items-center justify-center bg-black overflow-hidden min-h-[45vh]">
         <video
           ref={previewVideoRef}
           autoPlay
@@ -280,34 +285,33 @@ export default function StreamPage() {
         {/* Placeholder / Video Disabled Overlay */}
         {(!isStreaming || !isVideoEnabled) && (
           <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center text-neutral-400">
-            <div className="w-20 h-20 rounded-full bg-neutral-900/80 border border-neutral-800 flex items-center justify-center mb-4 shadow-inner">
-              <Camera className="w-9 h-9 text-neutral-500" />
+            <div className="w-20 h-20 rounded-full border border-neutral-800 flex items-center justify-center mb-4">
+              <Camera className="w-9 h-9 text-neutral-500" aria-hidden="true" />
             </div>
             <h2 className="text-lg font-semibold text-neutral-200 mb-1">
-              {isStreaming && !isVideoEnabled ? "Video Paused" : "Camera Stream Ready"}
+              {isStreaming && !isVideoEnabled ? "Video paused" : "Camera ready"}
             </h2>
             <p className="text-xs text-neutral-400 max-w-xs leading-relaxed">
               {isStreaming && !isVideoEnabled
                 ? "Your camera track is muted, but audio is still streaming."
-                : "Tap 'Start Streaming' below to stream your camera and microphone in real time to the central server."}
+                : "Tap Start Streaming to broadcast your camera and microphone to the room."}
             </p>
           </div>
         )}
 
         {/* HTTPS / Secure Context Warning */}
         {isSecureContextIssue && (
-          <div className="absolute inset-x-4 top-4 z-30 p-4 rounded-2xl bg-amber-950/90 border border-amber-600/50 backdrop-blur-md shadow-2xl">
+          <div className="absolute inset-x-4 top-4 z-30 p-4 rounded-xl bg-amber-50 border border-amber-300 shadow-sm">
             <div className="flex items-start gap-3">
-              <ShieldAlert className="w-6 h-6 text-amber-400 shrink-0 mt-0.5" />
+              <ShieldAlert className="w-6 h-6 text-amber-600 shrink-0 mt-0.5" aria-hidden="true" />
               <div>
-                <h3 className="text-sm font-semibold text-amber-200">
-                  HTTPS Required for Mobile Camera
+                <h3 className="text-sm font-semibold text-amber-900">
+                  HTTPS required for mobile camera
                 </h3>
-                <p className="text-xs text-amber-300/80 mt-1 leading-relaxed">
-                  Mobile browsers (iOS Safari & Android Chrome) block camera & microphone
-                  access when connecting over an unencrypted local IP (e.g.{" "}
-                  <code>http://192.168.x.x</code>). To stream from your phone, connect
-                  via HTTPS or use a free tunnel like Cloudflare Tunnel or ngrok.
+                <p className="text-xs text-amber-800/80 mt-1 leading-relaxed">
+                  Mobile browsers block camera &amp; microphone access over plain
+                  HTTP on a local IP (e.g. <code>http://192.168.x.x</code>).
+                  Connect via HTTPS or a tunnel like Cloudflare Tunnel or ngrok.
                 </p>
               </div>
             </div>
@@ -316,39 +320,45 @@ export default function StreamPage() {
 
         {/* Error notification banner */}
         {errorMsg && (
-          <div className="absolute inset-x-4 bottom-4 z-30 p-3.5 rounded-xl bg-rose-950/90 border border-rose-600/50 backdrop-blur-md flex items-center gap-2.5 text-rose-200 text-xs">
-            <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
-            <span className="truncate">{errorMsg}</span>
+          <div
+            className="absolute inset-x-4 bottom-4 z-30 p-3.5 rounded-xl bg-rose-50 border border-rose-300 flex items-center gap-2.5 text-rose-800 text-xs"
+            aria-live="polite"
+          >
+            <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" aria-hidden="true" />
+            <span className="break-words">{errorMsg}</span>
           </div>
         )}
       </main>
 
-      {/* Bottom Control Dock */}
-      <footer className="z-20 p-4 pb-8 bg-gradient-to-t from-black/95 via-black/75 to-transparent flex flex-col gap-4">
+      {/* Bottom Control Dock — light paper chrome */}
+      <footer className="z-20 p-4 pb-8 bg-surface border-t border-line flex flex-col gap-4">
         {/* Stream metadata configuration (only shown when not streaming) */}
         {!isStreaming && (
           <div className="flex gap-2.5 max-w-md mx-auto w-full">
-            <div className="flex-1">
-              <label className="block text-[11px] font-medium text-neutral-400 mb-1">
-                Your Device / Camera Name
+            <div className="flex-1 min-w-0">
+              <label htmlFor="client-name" className="block text-[11px] font-medium text-ink-soft mb-1">
+                Camera name
               </label>
               <input
+                id="client-name"
                 type="text"
                 value={clientName}
                 onChange={(e) => setClientName(e.target.value)}
-                placeholder="e.g. Phone 1, Stage Cam"
-                className="w-full px-3 py-2 bg-neutral-900 border border-neutral-800 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500"
+                placeholder="e.g. Phone 1, Stage Cam…"
+                autoComplete="off"
+                className="w-full px-3 py-2 bg-paper border border-line rounded-lg text-xs text-ink placeholder:text-ink-soft/60 focus:border-clay"
               />
             </div>
             <div className="w-28">
-              <label className="block text-[11px] font-medium text-neutral-400 mb-1">
+              <label htmlFor="stream-id" className="block text-[11px] font-medium text-ink-soft mb-1">
                 Stream ID
               </label>
               <input
+                id="stream-id"
                 type="text"
                 value={streamId}
                 onChange={(e) => setStreamId(e.target.value)}
-                className="w-full px-3 py-2 bg-neutral-900 border border-neutral-800 rounded-xl text-xs font-mono text-neutral-300 focus:outline-none focus:border-indigo-500"
+                className="w-full px-3 py-2 bg-paper border border-line rounded-lg text-xs font-mono text-ink focus:border-clay"
               />
             </div>
           </div>
@@ -356,12 +366,12 @@ export default function StreamPage() {
 
         {/* Action Controls */}
         <div className="flex items-center justify-center gap-4 max-w-md mx-auto w-full">
-          {/* Switch Camera Button (Front / Back) */}
+          {/* Switch Camera (Front / Back) */}
           <button
             type="button"
             onClick={handleSwitchCamera}
-            className="p-3.5 rounded-2xl bg-neutral-900/90 hover:bg-neutral-800 active:scale-95 border border-white/10 text-neutral-200 transition-all shadow-lg"
-            title={`Switch to ${facingMode === "environment" ? "Front" : "Back"} Camera`}
+            aria-label={`Switch to ${facingMode === "environment" ? "front" : "back"} camera`}
+            className="p-3.5 rounded-xl border border-line bg-paper text-ink-soft hover:text-ink hover:border-ink/40 active:scale-95 transition-[border-color,color,transform]"
           >
             <SwitchCamera className="w-5 h-5" />
           </button>
@@ -370,13 +380,13 @@ export default function StreamPage() {
           <button
             type="button"
             onClick={isStreaming ? stopStream : startStream}
-            className={`flex-1 py-4 px-6 rounded-2xl font-bold text-sm tracking-wide uppercase transition-all duration-300 flex items-center justify-center gap-2.5 shadow-2xl active:scale-98 ${
+            className={`flex-1 py-4 px-6 rounded-xl font-bold text-sm tracking-wide uppercase transition-colors flex items-center justify-center gap-2.5 active:scale-[0.98] ${
               isStreaming
-                ? "bg-rose-600 hover:bg-rose-500 text-white shadow-rose-900/50"
-                : "bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-900/50"
+                ? "bg-rose-700 hover:bg-rose-800 text-white"
+                : "bg-clay hover:bg-clay-deep text-white"
             }`}
           >
-            <Radio className={`w-5 h-5 ${isStreaming ? "animate-pulse" : ""}`} />
+            <Radio className="w-5 h-5" aria-hidden="true" />
             {isStreaming ? "Stop Streaming" : "Start Streaming"}
           </button>
 
@@ -384,12 +394,12 @@ export default function StreamPage() {
           <button
             type="button"
             onClick={handleToggleAudio}
-            className={`p-3.5 rounded-2xl active:scale-95 border transition-all shadow-lg ${
+            aria-label={isAudioEnabled ? "Mute microphone" : "Unmute microphone"}
+            className={`p-3.5 rounded-xl border transition-colors active:scale-95 ${
               isAudioEnabled
-                ? "bg-neutral-900/90 hover:bg-neutral-800 border-white/10 text-neutral-200"
-                : "bg-rose-950/80 border-rose-800/80 text-rose-400"
+                ? "bg-paper border-line text-ink-soft hover:text-ink hover:border-ink/40"
+                : "bg-rose-50 border-rose-300 text-rose-700"
             }`}
-            title={isAudioEnabled ? "Mute Microphone" : "Unmute Microphone"}
           >
             {isAudioEnabled ? <Mic className="w-5 h-5" /> : <MicOff className="w-5 h-5" />}
           </button>
@@ -398,12 +408,12 @@ export default function StreamPage() {
           <button
             type="button"
             onClick={handleToggleVideo}
-            className={`p-3.5 rounded-2xl active:scale-95 border transition-all shadow-lg ${
+            aria-label={isVideoEnabled ? "Disable camera" : "Enable camera"}
+            className={`p-3.5 rounded-xl border transition-colors active:scale-95 ${
               isVideoEnabled
-                ? "bg-neutral-900/90 hover:bg-neutral-800 border-white/10 text-neutral-200"
-                : "bg-rose-950/80 border-rose-800/80 text-rose-400"
+                ? "bg-paper border-line text-ink-soft hover:text-ink hover:border-ink/40"
+                : "bg-rose-50 border-rose-300 text-rose-700"
             }`}
-            title={isVideoEnabled ? "Disable Camera" : "Enable Camera"}
           >
             {isVideoEnabled ? <Video className="w-5 h-5" /> : <VideoOff className="w-5 h-5" />}
           </button>
@@ -416,5 +426,14 @@ export default function StreamPage() {
         onClose={() => setIsSettingsOpen(false)}
       />
     </div>
+  );
+}
+
+// useSearchParams needs a Suspense boundary in production builds (Next.js rule).
+export default function StreamPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-paper" />}>
+      <StreamContent />
+    </Suspense>
   );
 }

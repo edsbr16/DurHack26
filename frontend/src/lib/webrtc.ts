@@ -3,6 +3,7 @@ import { getBackendUrl } from "./config";
 export interface StreamPublisherConfig {
   streamId: string;
   clientName: string;
+  room?: string;
   facingMode: "user" | "environment";
   audioEnabled: boolean;
   videoEnabled: boolean;
@@ -86,6 +87,7 @@ export class WebRTCPublisher {
         type: this.pc.localDescription?.type,
         stream_id: this.config.streamId,
         client_name: this.config.clientName,
+        room: this.config.room,
         device_info: {
           userAgent: navigator.userAgent,
           facingMode: this.config.facingMode,

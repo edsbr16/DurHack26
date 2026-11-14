@@ -19,6 +19,7 @@ import { getBackendUrl } from "../lib/config";
 export interface StreamItemData {
   stream_id: string;
   client_name: string;
+  room?: string;
   device_info?: {
     facingMode?: string;
     userAgent?: string;
@@ -147,8 +148,8 @@ export const StreamPlayer: React.FC<StreamPlayerProps> = ({
   return (
     <div
       ref={containerRef}
-      className={`group relative flex flex-col bg-neutral-900 border border-neutral-800 rounded-2xl overflow-hidden shadow-xl transition-all duration-300 ${
-        isSolo ? "ring-2 ring-emerald-500" : "hover:border-neutral-700"
+      className={`group relative flex flex-col bg-surface border border-line rounded-xl overflow-hidden transition-colors duration-300 ${
+        isSolo ? "ring-2 ring-clay" : "hover:border-ink/30"
       }`}
     >
       {/* Video Container */}
@@ -166,8 +167,8 @@ export const StreamPlayer: React.FC<StreamPlayerProps> = ({
 
         {/* Loading / Disconnected state */}
         {(!hasStartedPlaying || connState !== "connected") && !errorMsg && (
-          <div className="absolute inset-0 bg-neutral-950/80 backdrop-blur-xs flex flex-col items-center justify-center gap-3 text-neutral-400">
-            <Radio className="w-8 h-8 animate-pulse text-indigo-400" />
+          <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center gap-3 text-neutral-400">
+            <Radio className="w-8 h-8 motion-safe:animate-pulse text-neutral-300" aria-hidden="true" />
             <span className="text-xs font-medium uppercase tracking-wider">
               {connState === "connecting" || connState === "new"
                 ? "Connecting to phone..."
@@ -178,7 +179,7 @@ export const StreamPlayer: React.FC<StreamPlayerProps> = ({
 
         {/* Error overlay */}
         {errorMsg && (
-          <div className="absolute inset-0 bg-neutral-950/90 flex flex-col items-center justify-center p-4 text-center text-rose-400">
+          <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center p-4 text-center text-rose-400">
             <XCircle className="w-8 h-8 mb-2" />
             <p className="text-xs font-medium">{errorMsg}</p>
           </div>
@@ -187,11 +188,11 @@ export const StreamPlayer: React.FC<StreamPlayerProps> = ({
         {/* Top Floating Badge Bar */}
         <div className="absolute top-3 left-3 right-3 flex items-center justify-between pointer-events-none">
           <div className="flex items-center gap-2 pointer-events-auto">
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-neutral-950/70 backdrop-blur-md text-white border border-white/10 shadow-sm">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-black/60 text-white border border-white/10">
               <span
                 className={`w-2 h-2 rounded-full ${
                   connState === "connected"
-                    ? "bg-emerald-500 animate-pulse"
+                    ? "bg-emerald-500 motion-safe:animate-pulse"
                     : "bg-amber-400"
                 }`}
               />
@@ -199,8 +200,8 @@ export const StreamPlayer: React.FC<StreamPlayerProps> = ({
             </span>
 
             {stream.fps !== undefined && stream.fps > 0 && (
-              <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-neutral-950/60 backdrop-blur-md text-neutral-300 border border-white/5">
-                <Activity className="w-3 h-3 text-cyan-400" />
+              <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-black/60 text-neutral-200 border border-white/10 tabular-nums">
+                <Activity className="w-3 h-3 text-neutral-300" aria-hidden="true" />
                 {stream.fps} FPS
               </span>
             )}
@@ -208,7 +209,7 @@ export const StreamPlayer: React.FC<StreamPlayerProps> = ({
 
           <div className="flex items-center gap-1.5 pointer-events-auto">
             {/* Audio level meter */}
-            <div className="px-2 py-1 rounded-lg bg-neutral-950/70 backdrop-blur-md border border-white/10 flex items-center gap-1.5">
+            <div className="px-2 py-1 rounded-lg bg-black/60 border border-white/10 flex items-center gap-1.5">
               <AudioMeter serverLevel={stream.volume_level} />
             </div>
 
@@ -217,8 +218,8 @@ export const StreamPlayer: React.FC<StreamPlayerProps> = ({
               <button
                 type="button"
                 onClick={() => onKick(stream.stream_id)}
-                className="p-1.5 rounded-lg bg-neutral-950/70 backdrop-blur-md text-neutral-400 hover:text-rose-400 hover:bg-rose-500/10 border border-white/10 transition-colors"
-                title="Disconnect stream"
+                aria-label="Disconnect stream"
+                className="p-1.5 rounded-lg bg-black/60 text-neutral-400 hover:text-rose-400 hover:bg-rose-500/10 border border-white/10 transition-colors"
               >
                 <XCircle className="w-4 h-4" />
               </button>
@@ -226,18 +227,18 @@ export const StreamPlayer: React.FC<StreamPlayerProps> = ({
           </div>
         </div>
 
-        {/* Bottom Floating Control Bar (Fade on hover or mobile tap) */}
-        <div className="absolute bottom-0 inset-x-0 p-3 bg-gradient-to-t from-black/80 via-black/40 to-transparent flex items-center justify-between opacity-90 sm:opacity-0 group-hover:opacity-100 transition-opacity">
+        {/* Bottom Floating Control Bar (visible on hover or tap) */}
+        <div className="absolute bottom-0 inset-x-0 p-3 bg-black/70 flex items-center justify-between opacity-90 sm:opacity-0 group-hover:opacity-100 transition-opacity">
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={toggleMute}
-              className={`p-2 rounded-xl backdrop-blur-md text-white transition-all ${
+              aria-label={isMuted ? "Unmute audio" : "Mute audio"}
+              className={`p-2 rounded-xl text-white transition-colors ${
                 isMuted
-                  ? "bg-neutral-800/80 hover:bg-neutral-700/80 text-neutral-300"
-                  : "bg-emerald-600/90 hover:bg-emerald-500/90 shadow-lg shadow-emerald-950"
+                  ? "bg-white/10 hover:bg-white/20"
+                  : "bg-emerald-700/90 hover:bg-emerald-600"
               }`}
-              title={isMuted ? "Unmute audio" : "Mute audio"}
             >
               {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
             </button>
@@ -246,14 +247,13 @@ export const StreamPlayer: React.FC<StreamPlayerProps> = ({
               <button
                 type="button"
                 onClick={() => onToggleSolo(stream.stream_id)}
-                className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold backdrop-blur-md transition-all ${
+                className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold transition-colors ${
                   isSolo
-                    ? "bg-emerald-600 text-white"
-                    : "bg-neutral-800/80 hover:bg-neutral-700/80 text-neutral-300"
+                    ? "bg-clay text-white"
+                    : "bg-white/10 hover:bg-white/20 text-white"
                 }`}
-                title="Solo this camera feed"
               >
-                {isSolo ? "Solo Active" : "Solo"}
+                {isSolo ? "Solo active" : "Solo"}
               </button>
             )}
           </div>
@@ -262,8 +262,8 @@ export const StreamPlayer: React.FC<StreamPlayerProps> = ({
             <button
               type="button"
               onClick={handleSnapshot}
-              className="p-2 rounded-xl bg-neutral-800/80 hover:bg-neutral-700/80 text-white backdrop-blur-md transition-colors"
-              title="Capture full-res snapshot from server"
+              aria-label="Capture snapshot"
+              className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-colors"
             >
               <Camera className="w-4 h-4" />
             </button>
@@ -271,8 +271,8 @@ export const StreamPlayer: React.FC<StreamPlayerProps> = ({
             <button
               type="button"
               onClick={toggleFullscreen}
-              className="p-2 rounded-xl bg-neutral-800/80 hover:bg-neutral-700/80 text-white backdrop-blur-md transition-colors"
-              title="Toggle Fullscreen"
+              aria-label="Toggle fullscreen"
+              className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-colors"
             >
               {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
             </button>
@@ -281,25 +281,26 @@ export const StreamPlayer: React.FC<StreamPlayerProps> = ({
       </div>
 
       {/* Stream Info Footer */}
-      <div className="px-4 py-2.5 flex items-center justify-between text-xs text-neutral-400 bg-neutral-900/90 border-t border-neutral-800/60">
-        <div className="flex items-center gap-2 truncate">
-          <span className="font-mono text-neutral-500 truncate max-w-[120px]">
-            {stream.stream_id}
-          </span>
+      <div className="px-4 py-2.5 flex items-center justify-between text-xs text-ink-soft bg-surface border-t border-line gap-2 min-w-0">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="font-mono text-ink-soft/70 truncate">{stream.stream_id}</span>
+          {stream.room && (
+            <span className="text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded bg-clay-tint text-clay-deep border border-clay/20">
+              {stream.room}
+            </span>
+          )}
           {stream.device_info?.facingMode && (
-            <span className="text-[10px] uppercase font-semibold px-1.5 py-0.5 rounded bg-neutral-800 text-neutral-300">
+            <span className="text-[10px] uppercase font-semibold px-1.5 py-0.5 rounded bg-paper text-ink-soft border border-line">
               {stream.device_info.facingMode === "user" ? "Front" : "Back"}
             </span>
           )}
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 shrink-0 tabular-nums">
           {stream.width && stream.height && (
             <span>{stream.width}×{stream.height}</span>
           )}
           {stream.motion_score !== undefined && stream.motion_score > 0 && (
-            <span className="text-cyan-400 font-mono">
-              Δ {stream.motion_score}
-            </span>
+            <span>Δ {stream.motion_score}</span>
           )}
         </div>
       </div>

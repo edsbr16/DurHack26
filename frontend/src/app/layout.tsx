@@ -1,9 +1,28 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
+import { Fraunces, Inter } from "next/font/google";
 import "./globals.css";
 
+const displayFont = Fraunces({
+  subsets: ["latin"],
+  style: ["normal", "italic"],
+  variable: "--font-fraunces",
+  display: "swap",
+});
+
+const sansFont = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
+  display: "swap",
+});
+
 export const metadata: Metadata = {
-  title: "DurHack WebRTC Stream — Central Media Engine",
-  description: "Sub-200ms real-time camera and audio streaming from mobile phones to a central server dashboard.",
+  title: "Natural Composition — live rooms from phone cameras",
+  description:
+    "Create a room, share the link, and every phone camera joins one live view — with real-time pinch tracking.",
+};
+
+export const viewport: Viewport = {
+  themeColor: "#faf7f1",
 };
 
 export default function RootLayout({
@@ -12,8 +31,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="h-full bg-neutral-950 text-white antialiased">
-      <body className="min-h-full flex flex-col font-sans">{children}</body>
+    <html
+      lang="en"
+      className={`h-full ${displayFont.variable} ${sansFont.variable} antialiased`}
+    >
+      <body className="min-h-full flex flex-col font-sans bg-paper text-ink">
+        {children}
+      </body>
     </html>
   );
 }

@@ -16,11 +16,13 @@ class StreamInfo:
         self,
         stream_id: str,
         client_name: str,
+        room: Optional[str],
         device_info: dict,
         pc: RTCPeerConnection,
     ):
         self.stream_id = stream_id
         self.client_name = client_name
+        self.room = room  # optional room code; None streams are visible everywhere
         self.device_info = device_info
         self.pc = pc
         self.relay = MediaRelay()
@@ -40,6 +42,7 @@ class StreamInfo:
         return {
             "stream_id": self.stream_id,
             "client_name": self.client_name,
+            "room": self.room,
             "device_info": self.device_info,
             "has_video": self.raw_video_track is not None,
             "has_audio": self.raw_audio_track is not None,
@@ -83,6 +86,7 @@ class StreamManager:
         self,
         stream_id: str,
         client_name: str,
+        room: Optional[str],
         device_info: dict,
         pc: RTCPeerConnection,
     ) -> StreamInfo:
@@ -91,7 +95,7 @@ class StreamManager:
             if stream_id in self.streams:
                 await self.streams[stream_id].close()
 
-            info = StreamInfo(stream_id, client_name, device_info, pc)
+            info = StreamInfo(stream_id, client_name, room, device_info, pc)
             self.streams[stream_id] = info
             logger.info(f"Registered stream: {stream_id} ({client_name})")
 

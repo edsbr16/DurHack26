@@ -75,7 +75,12 @@ export const AudioMeter: React.FC<AudioMeterProps> = ({
   const activeBars = Math.ceil((level / 100) * bars);
 
   return (
-    <div className={`flex items-end gap-1 h-4 ${className}`} title={`Audio: ${level}%`}>
+    <div
+      className={`flex items-end gap-1 h-4 ${className}`}
+      role="img"
+      aria-label={`Audio level ${level}%`}
+      title={`Audio: ${level}%`}
+    >
       {Array.from({ length: bars }).map((_, i) => {
         const isActive = i < activeBars;
         let color = "bg-emerald-500";
@@ -85,8 +90,8 @@ export const AudioMeter: React.FC<AudioMeterProps> = ({
         return (
           <div
             key={i}
-            className={`w-1 rounded-sm transition-all duration-75 ${
-              isActive ? color : "bg-neutral-700/60"
+            className={`w-1 rounded-sm transition-opacity duration-75 ${
+              isActive ? color : "bg-ink-soft/40"
             }`}
             style={{
               height: `${((i + 1) / bars) * 100}%`,

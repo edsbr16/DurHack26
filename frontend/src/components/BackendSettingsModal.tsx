@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Settings, Check, RotateCcw, X } from "lucide-react";
+import { RotateCcw, X } from "lucide-react";
 import { getBackendUrl, setCustomBackendUrl } from "../lib/config";
 
 interface BackendSettingsModalProps {
@@ -46,25 +46,21 @@ export const BackendSettingsModal: React.FC<BackendSettingsModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="relative w-full max-w-md bg-neutral-900 border border-neutral-800 rounded-2xl shadow-2xl p-6 text-neutral-100">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/40 overscroll-contain">
+      <div className="relative w-full max-w-md bg-surface border border-line rounded-xl shadow-sm p-6 text-ink">
         <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-              <Settings className="w-5 h-5" />
-            </div>
-            <h3 className="font-semibold text-lg text-white">Backend Settings</h3>
-          </div>
+          <h3 className="font-display text-xl tracking-tight">Backend settings</h3>
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-lg text-neutral-400 hover:text-white hover:bg-neutral-800 transition-colors"
+            aria-label="Close settings"
+            className="p-1.5 rounded-lg text-ink-soft hover:text-ink hover:bg-paper transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <p className="text-xs text-neutral-400 mb-5 leading-relaxed">
+        <p className="text-xs text-ink-soft mb-5 leading-relaxed">
           Specify the central FastAPI backend URL. By default, it auto-detects your
           current host on port 8000. If you are using Cloudflare Tunnel, ngrok, or a
           remote IP, enter it below.
@@ -72,15 +68,18 @@ export const BackendSettingsModal: React.FC<BackendSettingsModalProps> = ({
 
         <form onSubmit={handleSave} className="space-y-4">
           <div>
-            <label className="block text-xs font-medium text-neutral-300 mb-1.5">
-              Backend Endpoint (HTTP/HTTPS)
+            <label htmlFor="backend-url" className="block text-xs font-medium text-ink-soft mb-1.5">
+              Backend endpoint (HTTP/HTTPS)
             </label>
             <input
+              id="backend-url"
               type="text"
               value={url}
               onChange={(e) => setUrl(e.target.value)}
-              placeholder="http://192.168.1.50:8000 or https://..."
-              className="w-full px-3.5 py-2.5 bg-neutral-950 border border-neutral-800 rounded-xl text-sm font-mono focus:outline-none focus:border-indigo-500 transition-colors text-white"
+              placeholder="http://192.168.1.50:8000 or https://…"
+              autoComplete="off"
+              spellCheck={false}
+              className="w-full px-3.5 py-2.5 bg-paper border border-line rounded-lg text-sm font-mono text-ink placeholder:text-ink-soft/60 focus:border-clay"
               required
             />
           </div>
@@ -89,26 +88,25 @@ export const BackendSettingsModal: React.FC<BackendSettingsModalProps> = ({
             <button
               type="button"
               onClick={handleReset}
-              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-neutral-400 hover:text-white hover:bg-neutral-800 rounded-xl transition-colors"
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-ink-soft hover:text-ink transition-colors"
             >
-              <RotateCcw className="w-3.5 h-3.5" />
-              Reset Auto
+              <RotateCcw className="w-3.5 h-3.5" aria-hidden="true" />
+              Reset auto
             </button>
 
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 text-xs font-medium text-neutral-300 hover:bg-neutral-800 rounded-xl transition-colors"
+                className="px-4 py-2 text-xs font-medium text-ink-soft hover:text-ink transition-colors"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="inline-flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-xl shadow-lg shadow-indigo-600/25 transition-all"
+                className="px-4 py-2 rounded-lg bg-clay hover:bg-clay-deep text-white text-xs font-semibold transition-colors"
               >
-                {saved ? <Check className="w-4 h-4" /> : null}
-                Save & Reload
+                Save &amp; reload
               </button>
             </div>
           </div>
