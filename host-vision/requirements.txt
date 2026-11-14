@@ -1,0 +1,7 @@
+mediapipe>=1.2.3
+opencv-python>=5.0
+python-socketio>=5.12
+# python-socketio needs these for its HTTP/WS handshake; usually pulled in but
+# not guaranteed as hard deps:
+requests>=2.31
+websocket-client>=1.8
