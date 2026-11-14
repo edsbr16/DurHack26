@@ -1,19 +1,20 @@
-# secrets and personal data
-.env
-cases/
-# generated
-web/dist/
-web/dist-stable/
-web/node_modules/
+# Python
+backend/venv/
 .venv/
+venv/
 __pycache__/
-.pytest_cache/
-.ruff_cache/
 *.pyc
-.DS_Store
-# third-party design references (not ours to redistribute)
-web/reference/
+
+# Node / Next.js
+frontend/node_modules/
+frontend/.next/
+node_modules/
+.next/
+
+# Terraform & Secrets
 *.tfvars
 .terraform/
-*.http
 *.tfstate
+*.tfstate.*
+.env
+
