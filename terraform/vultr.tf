@@ -31,16 +31,40 @@ resource "vultr_nat_gateway" "nat_gateway" {
   tag    = var.vultr_tag
 }
 
-resource "vultr_nat_gateway_port_forwarding_rule" "port_forwarding_rule" {
+resource "vultr_nat_gateway_port_forwarding_rule" "port_forwarding_rule_22" {
   vpc_id         = vultr_nat_gateway.nat_gateway.vpc_id
   nat_gateway_id = vultr_nat_gateway.nat_gateway.id
-  name           = "${var.vultr_tag}NatPortForwardingRule"
+  name           = "${var.vultr_tag}NatPortForwardingRuleSSH"
   protocol       = "tcp"
   internal_port  = "22"
   internal_ip    = vultr_instance.web.internal_ip
   external_port  = "22"
   enabled        = true
   description    = "Allow to SSH into the web VPS"
+}
+
+resource "vultr_nat_gateway_port_forwarding_rule" "port_forwarding_rule_80" {
+  vpc_id         = vultr_nat_gateway.nat_gateway.vpc_id
+  nat_gateway_id = vultr_nat_gateway.nat_gateway.id
+  name           = "${var.vultr_tag}NatPortForwardingRuleHTTP"
+  protocol       = "tcp"
+  internal_port  = "80"
+  internal_ip    = vultr_instance.web.internal_ip
+  external_port  = "80"
+  enabled        = true
+  description    = "Allow to HTTP into the web VPS"
+}
+
+resource "vultr_nat_gateway_port_forwarding_rule" "port_forwarding_rule_443" {
+  vpc_id         = vultr_nat_gateway.nat_gateway.vpc_id
+  nat_gateway_id = vultr_nat_gateway.nat_gateway.id
+  name           = "${var.vultr_tag}NatPortForwardingRuleHTTPs"
+  protocol       = "tcp"
+  internal_port  = "443"
+  internal_ip    = vultr_instance.web.internal_ip
+  external_port  = "443"
+  enabled        = true
+  description    = "Allow to HTTPs into the web VPS"
 }
 
 resource "vultr_firewall_group" "firewall_web" {
@@ -51,8 +75,8 @@ resource "vultr_firewall_rule" "allow_22" {
   firewall_group_id = vultr_firewall_group.firewall_web.id
   protocol          = "tcp"
   ip_type           = "v4"
-  subnet            = "0.0.0.0"
-  subnet_size       = 0
+  subnet            = vultr_vpc.vpc.v4_subnet
+  subnet_size       = 8
   port              = "22"
   notes             = "Allow SSH"
 }
@@ -61,8 +85,8 @@ resource "vultr_firewall_rule" "allow_80" {
   firewall_group_id = vultr_firewall_group.firewall_web.id
   protocol          = "tcp"
   ip_type           = "v4"
-  subnet            = "0.0.0.0"
-  subnet_size       = 0
+  subnet            = vultr_vpc.vpc.v4_subnet
+  subnet_size       = 8
   port              = "80"
   notes             = "Allow HTTP"
 }
@@ -71,20 +95,10 @@ resource "vultr_firewall_rule" "allow_443" {
   firewall_group_id = vultr_firewall_group.firewall_web.id
   protocol          = "tcp"
   ip_type           = "v4"
-  subnet            = "0.0.0.0"
-  subnet_size       = 0
+  subnet            = vultr_vpc.vpc.v4_subnet
+  subnet_size       = 8
   port              = "443"
   notes             = "Allow HTTPs"
-}
-
-resource "vultr_firewall_rule" "allow_webrtc_udp" {
-  firewall_group_id = vultr_firewall_group.firewall_web.id
-  protocol          = "udp"
-  ip_type           = "v4"
-  subnet            = "0.0.0.0"
-  subnet_size       = 0
-  port              = "10000:60000"
-  notes             = "Allow WebRTC UDP media traffic"
 }
 
 resource "vultr_reserved_ip" "reserved_ip" {
@@ -113,5 +127,5 @@ resource "vultr_instance" "web" {
 }
 
 output "web_ip" {
-  value = "${vultr_nat_gateway.nat_gateway.public_ips[0]}:${vultr_nat_gateway_port_forwarding_rule.port_forwarding_rule.external_port}"
+  value = "${vultr_nat_gateway.nat_gateway.public_ips[0]}:${vultr_nat_gateway_port_forwarding_rule.port_forwarding_rule_22.external_port}"
 }

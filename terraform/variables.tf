@@ -30,5 +30,5 @@ variable "vultr_os_id" {
 variable "vultr_tag" {
   type        = string
   description = "Tag and name prefix for all resources that support it"
-  default     = "HackTheBurgh2026"
+  default     = "Durhack2026"
 }
