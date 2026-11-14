@@ -18,3 +18,4 @@ node_modules/
 *.tfstate.*
 .env
 
+DurhackKey.pem
