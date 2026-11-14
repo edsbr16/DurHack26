@@ -4,6 +4,8 @@ import numpy as np
 from PIL import Image
 import av
 
+from hand_tracker import HandTracker
+
 class VideoFrameProcessor:
     """
     Processes incoming video frames from mobile phone camera streams.
@@ -11,6 +13,7 @@ class VideoFrameProcessor:
       - Real-time frame statistics (FPS, resolution, bitrate indicators)
       - JPEG snapshot caching for instant web preview / snapshots
       - Motion and activity analysis
+      - MediaPipe hand pinch tracking (thumb + index) on a throttled cadence
       - Extensible AI detection hook (OpenCV, YOLO, Face detection, Gemini, etc.)
     """
     def __init__(self, stream_id: str):
@@ -24,6 +27,7 @@ class VideoFrameProcessor:
         self.latest_jpeg: bytes | None = None
         self.prev_gray: np.ndarray | None = None
         self.motion_score = 0.0
+        self.tracker = HandTracker()
 
     def process_video_frame(self, frame: av.VideoFrame) -> dict:
         now = time.time()
@@ -64,7 +68,11 @@ class VideoFrameProcessor:
         except Exception as e:
             pass
 
-        return {
+        # Hand pinch tracking (MediaPipe) — throttled inside; failures degrade
+        # to "no hand" rather than killing the frame pipeline.
+        self.tracker.maybe_detect(frame)
+
+        metrics = {
             "stream_id": self.stream_id,
             "fps": self.fps,
             "width": self.width,
@@ -73,6 +81,8 @@ class VideoFrameProcessor:
             "motion_score": self.motion_score,
             "timestamp": now,
         }
+        metrics.update(self.tracker.to_event_fields())
+        return metrics
 
 
 class AudioFrameProcessor:

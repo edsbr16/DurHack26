@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { WebRTCViewer } from "../lib/webrtc";
 import { AudioMeter } from "./AudioMeter";
+import { PinchOverlay, PinchData } from "./PinchOverlay";
 import { getBackendUrl } from "../lib/config";
 
 export interface StreamItemData {
@@ -36,6 +37,8 @@ interface StreamPlayerProps {
   onKick?: (streamId: string) => void;
   isSolo?: boolean;
   onToggleSolo?: (streamId: string) => void;
+  /** Live pinch tracking data from the backend (MediaPipe on this stream). */
+  pinch?: PinchData;
 }
 
 export const StreamPlayer: React.FC<StreamPlayerProps> = ({
@@ -43,6 +46,7 @@ export const StreamPlayer: React.FC<StreamPlayerProps> = ({
   onKick,
   isSolo = false,
   onToggleSolo,
+  pinch,
 }) => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -156,6 +160,9 @@ export const StreamPlayer: React.FC<StreamPlayerProps> = ({
           muted={isMuted}
           className="w-full h-full object-contain"
         />
+
+        {/* Pinch tracking overlay (backend-side MediaPipe on this stream) */}
+        <PinchOverlay pinch={pinch} videoRef={videoRef} fit="contain" />
 
         {/* Loading / Disconnected state */}
         {(!hasStartedPlaying || connState !== "connected") && !errorMsg && (

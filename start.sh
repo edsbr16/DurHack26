@@ -15,8 +15,9 @@ start_backend() {
   if [ ! -d "backend/venv" ]; then
     echo "Creating virtual environment..."
     python3 -m venv backend/venv
-    ./backend/venv/bin/pip install -r backend/requirements.txt
   fi
+  # Always sync deps: an existing venv must pick up newly added requirements.
+  ./backend/venv/bin/pip install -q -r backend/requirements.txt
   cd backend
   PYTHONPATH=. ../backend/venv/bin/uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 }
