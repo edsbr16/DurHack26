@@ -1,143 +1,81 @@
-# DurHack26 — Real-Time Central WebRTC Camera & Audio Streaming Platform
+# Composition — the room is the instrument
 
-A real-time media application that allows anyone to connect with their smartphone via a web browser and stream their camera and microphone feeds directly to a central Python backend server, similar to Zoom or Google Meet.
+People scan a QR code and join with their phones. Each phone's camera picks the
+colour of that phone's synth voice; a hand pinch plays it; the Arduino's
+distance/mic/colour sensors set the mode of the whole piece. The sound comes
+**from the crowd's phones**, the host laptop adds a quiet drone floor, and the
+host screen shows the tile wall + visuals.
 
-The platform provides a **Host Control Dashboard** that displays a dynamic multi-camera video grid with live audio VU meters, connection stats (FPS, resolution, motion score), full-resolution snapshots, and a QR code generator for instant mobile phone onboarding.
+- `server/` — Node bridge: Arduino serial → smoothed `arduino:data` @20Hz over
+  socket.io, relays `client:vision`, serves the built client. **Mock-first**: no
+  Arduino / unplugged Arduino / silent serial → generated values, seamless.
+- `web/` — one Vite app, two roles: `/?host` = host console, everyone else =
+  phone player. Vision (MediaPipe hand landmarker + canvas colour sampling)
+  runs **on the phone**; only tiny flat JSON payloads go over the network.
 
----
+## Run it
 
-## 🏗️ Architecture
-
-```
-┌─────────────────────────────────┐
-│     Smartphone (Browser)        │
-│  - iOS Safari / Android Chrome  │
-│  - getUserMedia (Cam + Mic)     │
-│  - WebRTC PeerConnection (RTP)  │
-└────────────────┬────────────────┘
-                 │
-                 │ WebRTC Sub-200ms RTP Stream (Video + Audio)
-                 ▼
-┌────────────────────────────────────────────────────────┐
-│             Central Python Backend                     │
-│  - FastAPI + aiortc                                    │
-│  - Direct Ingestion of H.264 / VP8 & Opus RTP streams  │
-│  - VideoFrameProcessor (FPS, motion, JPEG snapshot)    │
-│  - AudioFrameProcessor (RMS volume meter)              │
-│  - MediaRelay (Selective Forwarding to Viewers)        │
-│  - WebSocket Hub (/api/ws for real-time events)        │
-│  - Extensible AI / CV processing hooks (OpenCV, etc.)  │
-└────────────────┬───────────────────────────────────────┘
-                 │
-                 │ WebRTC Relayed Tracks + WebSocket Events
-                 ▼
-┌────────────────────────────────────────────────────────┐
-│             Central Host Dashboard                     │
-│  - Next.js 16 + React 19 + Tailwind CSS                │
-│  - Dynamic multi-camera gallery grid (1..N feeds)      │
-│  - Individual volume controls & Audio VU meters        │
-│  - Solo mode, fullscreen view, server-side snapshots   │
-│  - QR Code scanner invite modal                        │
-└────────────────────────────────────────────────────────┘
-```
-
----
-
-## 🚀 Quick Start
-
-### 1. Launch Everything
-
-Run the helper script from the root directory:
 ```bash
-./start.sh
-```
-This will start:
-- **FastAPI Backend**: `http://localhost:8000` (API Docs at `http://localhost:8000/docs`)
-- **Next.js Frontend**: `http://localhost:3000`
-
-Or start them individually:
-```bash
-# Backend only
-./start.sh backend
-
-# Frontend only
-./start.sh frontend
+# 1. bridge (serves the built client on :3001)
+cd server && npm install
+# 2. client (dev mode is laptop-only; phones use the built assets)
+cd web && npm install && npm run build
+# 3. start
+cd ../server && npm start          # http://localhost:3001
+# host laptop opens:  http://localhost:3001/?host
+# 4. expose for phones (HTTPS required for camera):
+cloudflared tunnel --url http://localhost:3001
+# paste the printed https://…trycloudflare.com URL into the QR box on the host
 ```
 
----
+Dev on the laptop only: `cd web && npm run dev` (socket proxied to :3001).
 
-## 📱 Connecting with a Smartphone
+## Networking facts that matter at the demo
 
-### Important: Mobile Browser HTTPS Requirement
-Mobile browsers (Safari on iOS and Chrome on Android) strictly require a **Secure Context (`https://` or `localhost`)** to access `navigator.mediaDevices.getUserMedia` (camera and microphone). When testing on a local WiFi network using an IP address (e.g. `http://192.168.1.X:3000`), mobile browsers disable camera access.
+- Phones do **not** need venue WiFi. They need *any* internet to reach the
+  tunnel URL — 4G/5G sidesteps eduroam/captive-portal entirely.
+- The phone QR payload must be the **https tunnel URL**, never localhost.
+- Tunnel URLs change on restart → the host view has a paste-box, QR re-renders.
+- WebRTC is a **star**: each phone calls the host only. PeerJS signaling uses
+  the public cloud; if the venue blocks it we self-host PeerJS later (cut list).
 
-### Recommended Solutions for Mobile Testing:
+## Serial contract (for the Arduino owner)
 
-#### Option A: Cloudflare Tunnel (Free, Instant, No Account Needed)
-In a separate terminal, expose the frontend and backend:
-```bash
-# Expose frontend (gives a free https://*.trycloudflare.com URL)
-cloudflared tunnel --url http://localhost:3000
-```
-Open the generated HTTPS URL on your phone or scan the QR code from the dashboard!
+115200 baud, one line per `delay(50)`, JSON preferred, CSV accepted:
 
-#### Option B: ngrok
-```bash
-ngrok http 3000
+```json
+{"distance": 42.5, "sound": 0.65, "rgb": [120, 200, 95]}
 ```
 
-#### Option C: Production Deployment (Vultr VPS)
-Deploy to the included Vultr Terraform infrastructure with SSL / Let's Encrypt (see [Deployment](#-deployment-to-vultr-vps)).
+or `42.5,0.65,120,200,95` (distance cm, sound 0–1, rgb 0–255).
 
----
+If the server sees no well-formed line for 1s it falls back to mock values —
+the demo literally cannot die of an unplugged Arduino. `SERIAL_BAUD=… npm start`
+overrides the baud.
 
-## 🖥️ Application Features & Routes
+## Host console cheat-sheet
 
-| Route | Purpose | Key Features |
-| :--- | :--- | :--- |
-| `/` | **Home Portal** | Overview, system status indicator, quick launch links, backend settings. |
-| `/stream` | **Mobile Phone Streamer** | Fullscreen camera viewfinder, front/back camera switch, mic mute, video pause, screen wake lock (prevents phone sleep), audio VU meter. |
-| `/dashboard` | **Central Host Dashboard** | Adaptive multi-camera grid (Zoom/Meet gallery view), audio meters, individual mute/listen controls, solo view, full-res snapshots, instant QR code modal. |
+| Action | How |
+|---|---|
+| Toggle mock drawer (sliders for distance/sound/colour) | `M` |
+| Resume auto/mock values | "Resume auto" button |
+| Snapshot ambient colour (venue light) | "Calibrate ambient" |
+| Room is simulated | orange "SIMULATED" badge |
 
----
+## Smoke test — run this on-site before building anything else
 
-## 🧠 Extensible AI & Computer Vision Hooks
+1. `cloudflared tunnel --url http://localhost:3001` — open the URL on a phone
+   with WiFi OFF (pure cellular): page loads, gate button works.
+2. Same phone on eduroam/captive portal: note the pain, keep participants on cellular.
+3. 2 phones + host: tiles appear, pinch visibly moves bars/nodes.
+4. **iPhone**: silent switch (does audio die?), screen lock (does audio die?),
+   camera prompt under the tunnel's HTTPS.
+5. Quick Android pass of the same.
+6. Watch data usage — vision payloads are tiny; video is ~160×120 @8fps.
 
-The backend receives raw video frames directly in Python. You can find the frame ingestion pipeline in `backend/ai_processor.py`:
+## Cut list, in order (if time runs short)
 
-```python
-# backend/ai_processor.py
-def process_video_frame(self, frame: av.VideoFrame):
-    # Convert directly to PIL or NumPy RGB/BGR array
-    img = frame.to_image()
-    # Or: np_array = frame.to_ndarray(format="bgr24")
-    
-    # Plug in OpenCV / YOLO / Face detection / Multimodal AI models here!
-```
-
----
-
-## 🌐 API Endpoints
-
-- `POST /api/publish`: WebRTC signaling endpoint for phone camera/mic publishers.
-- `POST /api/view/{stream_id}`: WebRTC signaling endpoint for dashboard viewers.
-- `GET /api/streams`: List of currently active phone streams and real-time statistics.
-- `GET /api/stream/{stream_id}/snapshot.jpg`: Captures the latest high-resolution JPEG frame from the server.
-- `DELETE /api/stream/{stream_id}`: Remotely disconnects a stream.
-- `WS /api/ws`: WebSocket channel for stream join/leave events, audio level meters, and stats.
-- `GET /api/health`: Health status and connection counts.
-
----
-
-## ☁️ Deployment to Vultr VPS
-
-The repository includes Terraform definitions in the `terraform/` folder configured for a Vultr cloud instance:
-- Ports `22` (SSH), `80` (HTTP), `443` (HTTPS), and UDP ports `10000:60000` (WebRTC media) are opened in `terraform/vultr.tf`.
-- To deploy:
-  ```bash
-  cd terraform
-  cp terraform.tfvars.example terraform.tfvars
-  # Add your vultr_api_key and ssh key
-  terraform init
-  ./deploy.sh
-  ```
+1. Video tiles (vision payloads still flow; sound unaffected)
+2. Calibrate ambient button
+3. Visual extras (keep the background wash + participant nodes)
+4. Drone bed — **never cut**: mock fallback, audio gate, QR, throttling
