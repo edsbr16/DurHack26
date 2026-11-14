@@ -1,0 +1,1 @@
+We want to create a web application that allows anyone to connect to a web-page with their phone and stream their camera and audio feed to a central server, which is our backend, similar to what happens with a group call on Zoom or Google Meet.
