@@ -1,0 +1,12 @@
+@VULTR_API_KEY="LNQMMNBFKQSYV2RIWNVSFN55HNKNQYVDAMCQ"
+
+GET https://api.vultr.com/v2/plans
+Authorization: Bearer {{VULTR_API_KEY}}
+
+###
+GET https://api.vultr.com/v2/regions
+Authorization: Bearer {{VULTR_API_KEY}}
+
+###
+GET https://api.vultr.com/v2/os
+Authorization: Bearer {{VULTR_API_KEY}}
