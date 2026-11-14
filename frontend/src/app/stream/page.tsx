@@ -18,6 +18,8 @@ import {
 import { WebRTCPublisher } from "../../lib/webrtc";
 import { AudioMeter } from "../../components/AudioMeter";
 import { BackendSettingsModal } from "../../components/BackendSettingsModal";
+import { PinchOverlay, PinchData } from "../../components/PinchOverlay";
+import { getBackendWsUrl } from "../../lib/config";
 
 export default function StreamPage() {
   const previewVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -36,6 +38,7 @@ export default function StreamPage() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
   const [isSecureContextIssue, setIsSecureContextIssue] = useState<boolean>(false);
+  const [pinch, setPinch] = useState<PinchData | undefined>(undefined);
 
   // Initialize unique random stream ID and default name
   useEffect(() => {
@@ -81,6 +84,46 @@ export default function StreamPage() {
       }
     };
   }, [isStreaming]);
+
+  // Live pinch tracking for our own stream: the backend runs MediaPipe on our
+  // WebRTC frames and echoes pinch_update events over the stats websocket.
+  useEffect(() => {
+    if (!isStreaming || !streamId) return;
+    let reconnectTimer: ReturnType<typeof setTimeout>;
+    let ws: WebSocket | null = null;
+
+    const connectWs = () => {
+      ws = new WebSocket(`${getBackendWsUrl()}/api/ws`);
+      ws.onmessage = (event) => {
+        try {
+          const msg = JSON.parse(event.data);
+          if (msg.event === "pinch_update" && msg.stream_id === streamId) {
+            setPinch({
+              hand: msg.hand,
+              pinch: msg.pinch,
+              pinching: msg.pinching,
+              landmarks: msg.landmarks,
+            });
+          }
+        } catch {
+          // ignore parsing error
+        }
+      };
+      ws.onclose = () => {
+        reconnectTimer = setTimeout(connectWs, 3000);
+      };
+      ws.onerror = () => {
+        ws?.close();
+      };
+    };
+
+    connectWs();
+    return () => {
+      clearTimeout(reconnectTimer);
+      ws?.close();
+      setPinch(undefined);
+    };
+  }, [isStreaming, streamId]);
 
   const startStream = async () => {
     setErrorMsg(null);
@@ -228,6 +271,11 @@ export default function StreamPage() {
             isStreaming && isVideoEnabled ? "opacity-100" : "opacity-0"
           }`}
         />
+
+        {/* Pinch tracking overlay (backend MediaPipe on our stream) */}
+        {isStreaming && isVideoEnabled && (
+          <PinchOverlay pinch={pinch} videoRef={previewVideoRef} fit="cover" banner />
+        )}
 
         {/* Placeholder / Video Disabled Overlay */}
         {(!isStreaming || !isVideoEnabled) && (

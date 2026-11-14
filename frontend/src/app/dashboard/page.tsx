@@ -15,11 +15,13 @@ import {
   ShieldAlert,
 } from "lucide-react";
 import { StreamPlayer, StreamItemData } from "../../components/StreamPlayer";
+import { PinchData } from "../../components/PinchOverlay";
 import { BackendSettingsModal } from "../../components/BackendSettingsModal";
 import { getBackendUrl, getBackendWsUrl } from "../../lib/config";
 
 export default function DashboardPage() {
   const [streams, setStreams] = useState<StreamItemData[]>([]);
+  const [pinchMap, setPinchMap] = useState<Record<string, PinchData>>({});
   const [serverOnline, setServerOnline] = useState<boolean | null>(null);
   const [isQrModalOpen, setIsQrModalOpen] = useState<boolean>(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
@@ -92,6 +94,22 @@ export default function DashboardPage() {
           } else if (msg.event === "stream_left") {
             setStreams((prev) => prev.filter((s) => s.stream_id !== msg.stream_id));
             setSoloStreamId((prev) => (prev === msg.stream_id ? null : prev));
+            setPinchMap((prev) => {
+              const next = { ...prev };
+              delete next[msg.stream_id];
+              return next;
+            });
+          } else if (msg.event === "pinch_update") {
+            // Backend MediaPipe pinch tracking for the tile overlay
+            setPinchMap((prev) => ({
+              ...prev,
+              [msg.stream_id]: {
+                hand: msg.hand,
+                pinch: msg.pinch,
+                pinching: msg.pinching,
+                landmarks: msg.landmarks,
+              },
+            }));
           } else if (msg.event === "stats_update") {
             setStreams((prev) =>
               prev.map((s) =>
@@ -311,6 +329,7 @@ export default function DashboardPage() {
                   onKick={handleKickStream}
                   isSolo={soloStreamId === stream.stream_id}
                   onToggleSolo={handleToggleSolo}
+                  pinch={pinchMap[stream.stream_id]}
                 />
               ))}
           </div>

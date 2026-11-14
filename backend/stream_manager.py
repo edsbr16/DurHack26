@@ -49,6 +49,8 @@ class StreamInfo:
             "total_frames": self.video_processor.frame_count,
             "volume_level": self.audio_processor.volume_level,
             "motion_score": self.video_processor.motion_score,
+            "hand": self.video_processor.tracker.present,
+            "pinch": self.video_processor.tracker.pinch,
             "viewers_count": len(self.active_viewers),
         }
 
@@ -152,11 +154,21 @@ class StreamManager:
                 return
             relayed = info.relay.subscribe(info.raw_video_track)
             last_stats_push = 0
+            last_pinch_push = 0
             while True:
                 try:
                     frame = await relayed.recv()
                     stats = info.video_processor.process_video_frame(frame)
                     now = asyncio.get_event_loop().time()
+                    # Pinch tracking overlay data — fast cadence so fingertip
+                    # dots feel live on the dashboard / streamer preview.
+                    if now - last_pinch_push >= 0.08:
+                        last_pinch_push = now
+                        await self.broadcast_event({
+                            "event": "pinch_update",
+                            "stream_id": info.stream_id,
+                            **info.video_processor.tracker.to_event_fields(),
+                        })
                     if now - last_stats_push >= 1.0:
                         last_stats_push = now
                         await self.broadcast_event({

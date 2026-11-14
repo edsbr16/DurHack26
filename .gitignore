@@ -2,10 +2,6 @@
 .env
 cases/
 # generated
-server/node_modules/
-web/dist/
-web/dist-stable/
-web/node_modules/
 .venv/
 __pycache__/
 .pytest_cache/
