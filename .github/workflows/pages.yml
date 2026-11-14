@@ -39,6 +39,8 @@ jobs:
                   chmod +w out
                   touch out/.nojekyll
               working-directory: frontend
+              env:
+                NEXT_PUBLIC_BACKEND_URL: durhack26.tend-to.dev
 
             - name: Setup Pages
               uses: actions/configure-pages@v6
