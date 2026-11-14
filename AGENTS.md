@@ -15,7 +15,9 @@ Phones/laptops stream camera + mic to a central Python backend over WebRTC
   localStorage override), `src/components/PinchOverlay.tsx` (canvas overlay).
 - Pinch tracking — `backend/hand_tracker.py`: one shared MediaPipe
   HandLandmarker over all streams, ~12Hz each, broadcast as `pinch_update`
-  events. Display-only by design; nothing consumes pinches yet.
+  events. The streamer consumes its own echo to harmonize its published
+  voice (dry on top, chromatic-stepped layer beneath, 0 → −12 semitones,
+  glide + step/absence hysteresis in `frontend/src/lib/voicePitch.ts`).
 
 ## Conventions & constraints
 - Pinch math (scale-invariant): dist(thumb 4, index 8) / dist(wrist 0,

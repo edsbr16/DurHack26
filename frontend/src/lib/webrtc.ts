@@ -7,6 +7,9 @@ export interface StreamPublisherConfig {
   facingMode: "user" | "environment";
   audioEnabled: boolean;
   videoEnabled: boolean;
+  /** Process the raw mic stream (e.g. pitch shifting); its audio track gets
+      published instead. The raw mic stays local for metering/mute. */
+  processAudio?: (raw: MediaStream) => MediaStream;
   onConnectionStateChange?: (state: RTCPeerConnectionState) => void;
   onError?: (err: Error) => void;
 }
@@ -60,8 +63,18 @@ export class WebRTCPublisher {
       }
     };
 
-    // Add local tracks to peer connection
-    this.localStream.getTracks().forEach((track) => {
+    // Add local tracks to the peer connection. When a processor is supplied,
+    // its audio track replaces the raw mic on the wire — the raw stays local
+    // (muting it silences the graph too, so the mic toggle still works).
+    const publishTracks: MediaStreamTrack[] = [...this.localStream.getVideoTracks()];
+    const rawAudio = this.localStream.getAudioTracks();
+    if (this.config.processAudio && rawAudio.length > 0) {
+      const processed = this.config.processAudio(this.localStream);
+      publishTracks.push(processed.getAudioTracks()[0] ?? rawAudio[0]);
+    } else {
+      publishTracks.push(...rawAudio);
+    }
+    publishTracks.forEach((track) => {
       if (this.localStream && this.pc) {
         this.pc.addTrack(track, this.localStream);
       }

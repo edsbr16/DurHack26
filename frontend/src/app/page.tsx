@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { getBackendUrl } from "../lib/config";
+import { X } from "lucide-react";
 
 // Unambiguous alphabet — no I/L/O/0/1 so codes read aloud can't be mistyped.
 const CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
@@ -60,43 +60,15 @@ export default function HomePage() {
   const [joinOpen, setJoinOpen] = useState(false);
   const [code, setCode] = useState("");
 
-  // Live room teaser: camera count + a real snapshot frame from the backend.
-  const [liveCount, setLiveCount] = useState<number | null>(null);
-  const [snapshotId, setSnapshotId] = useState<string | null>(null);
-  const [snapTick, setSnapTick] = useState(0);
-
+  // Escape closes the join dialog, like every other dialog in the app.
   useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      try {
-        const [healthRes, streamsRes] = await Promise.all([
-          fetch(`${getBackendUrl()}/api/health`, { cache: "no-store" }),
-          fetch(`${getBackendUrl()}/api/streams`, { cache: "no-store" }),
-        ]);
-        if (!healthRes.ok || !streamsRes.ok) throw new Error("backend not ok");
-        const health = await healthRes.json();
-        const streams: { stream_id: string }[] = await streamsRes.json();
-        if (cancelled) return;
-        setLiveCount(health.active_streams ?? 0);
-        setSnapshotId(streams.length > 0 ? streams[0].stream_id : null);
-      } catch {
-        if (!cancelled) setLiveCount(-1);
-      }
+    if (!joinOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setJoinOpen(false);
     };
-    load();
-    const iv = setInterval(load, 4000);
-    return () => {
-      cancelled = true;
-      clearInterval(iv);
-    };
-  }, []);
-
-  // Snapshot refresh cadence — only while a stream is actually up.
-  useEffect(() => {
-    if (!snapshotId) return;
-    const iv = setInterval(() => setSnapTick((t) => t + 1), 2000);
-    return () => clearInterval(iv);
-  }, [snapshotId]);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [joinOpen]);
 
   const createRoom = () => {
     router.push(`/dashboard?room=${generateRoomCode()}`);
@@ -183,81 +155,11 @@ export default function HomePage() {
               Join Room with a Code
             </button>
           </div>
-
-          {joinOpen && (
-            <form
-              onSubmit={joinRoom}
-              aria-label="Join a room with a code"
-              className="mt-5 flex items-center gap-2.5"
-            >
-              <label htmlFor="room-code" className="text-xs text-ink-soft">
-                Room code
-              </label>
-              <input
-                id="room-code"
-                value={code}
-                onChange={(e) => setCode(e.target.value.toUpperCase())}
-                placeholder="e.g. HX4K2M…"
-                maxLength={8}
-                autoComplete="off"
-                spellCheck={false}
-                autoCapitalize="characters"
-                className="w-44 px-3 py-2 text-sm font-mono uppercase tracking-widest bg-surface border border-line rounded-lg text-ink placeholder:normal-case placeholder:tracking-normal placeholder:text-ink-soft/60 focus:border-clay"
-              />
-              <button
-                type="submit"
-                className="px-4 py-2 text-sm font-semibold rounded-lg bg-ink text-paper hover:bg-ink/85 transition-colors"
-              >
-                Join
-              </button>
-            </form>
-          )}
         </section>
       </div>
 
-      {/* Paper section: live teaser + how it works */}
-      <div className="flex-1 max-w-4xl mx-auto w-full px-6 py-14 flex flex-col gap-14">
-        <section aria-label="Live room teaser" className="max-w-xl">
-          <div className="border border-line bg-surface rounded-xl p-4 flex flex-col sm:flex-row items-center gap-4">
-            {snapshotId ? (
-              <img
-                key={`${snapshotId}-${snapTick}`}
-                src={`${getBackendUrl()}/api/stream/${snapshotId}/snapshot.jpg?t=${snapTick}`}
-                alt="Live frame from an active room camera"
-                width={256}
-                height={192}
-                loading="lazy"
-                className="w-64 aspect-[4/3] object-cover rounded-lg border border-line bg-paper"
-              />
-            ) : (
-              <div className="w-64 aspect-[4/3] rounded-lg border border-line bg-paper flex items-center justify-center text-xs text-ink-soft">
-                No frame
-              </div>
-            )}
-            <div className="min-w-0">
-              {liveCount === null && (
-                <p className="text-sm text-ink-soft">Checking the room…</p>
-              )}
-              {liveCount === -1 && (
-                <p className="text-sm text-ink-soft">Can&apos;t reach the backend right now.</p>
-              )}
-              {liveCount === 0 && (
-                <p className="text-sm text-ink-soft">Nothing live yet — create the first room.</p>
-              )}
-              {liveCount !== null && liveCount > 0 && (
-                <>
-                  <p className="text-sm font-semibold tabular-nums">
-                    {liveCount} {liveCount === 1 ? "camera" : "cameras"} live right now
-                  </p>
-                  <p className="text-xs text-ink-soft mt-1 leading-relaxed">
-                    A real frame straight from the room — refreshes every couple of seconds.
-                  </p>
-                </>
-              )}
-            </div>
-          </div>
-        </section>
-
+      {/* Paper section: how it works */}
+      <div className="flex-1 max-w-4xl mx-auto w-full px-6 py-14 flex flex-col">
         <section aria-label="How it works" className="grid grid-cols-1 sm:grid-cols-3 gap-8 sm:gap-10 max-w-3xl">
           {STEPS.map((s) => (
             <div key={s.n}>
@@ -273,6 +175,70 @@ export default function HomePage() {
         <span>Natural Composition</span>
         <span>DurHack 2026</span>
       </footer>
+
+      {/* Join Room dialog — centered card over a soft scrim */}
+      {joinOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/40 overscroll-contain"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setJoinOpen(false);
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Join a room with a code"
+            className="w-full max-w-sm bg-surface border border-line rounded-xl shadow-sm p-6"
+          >
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="font-display text-xl tracking-tight">Join a room</h2>
+              <button
+                type="button"
+                onClick={() => setJoinOpen(false)}
+                aria-label="Close"
+                className="p-1.5 rounded-lg text-ink-soft hover:text-ink hover:bg-paper transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="text-xs text-ink-soft mb-4 leading-relaxed">
+              Type the code the host shared with you.
+            </p>
+            <form onSubmit={joinRoom} className="flex flex-col gap-3">
+              <label htmlFor="room-code" className="text-xs font-medium text-ink-soft">
+                Room code
+              </label>
+              <input
+                id="room-code"
+                autoFocus
+                value={code}
+                onChange={(e) => setCode(e.target.value.toUpperCase())}
+                placeholder="e.g. HX4K2M…"
+                maxLength={8}
+                autoComplete="off"
+                spellCheck={false}
+                autoCapitalize="characters"
+                className="w-full px-3.5 py-2.5 text-sm font-mono uppercase tracking-widest bg-paper border border-line rounded-lg text-ink placeholder:normal-case placeholder:tracking-normal placeholder:text-ink-soft/60 focus:border-clay"
+              />
+              <div className="flex items-center justify-end gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setJoinOpen(false)}
+                  className="px-4 py-2 text-sm font-medium text-ink-soft hover:text-ink transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 text-sm font-semibold rounded-lg bg-clay text-white hover:bg-clay-deep transition-colors"
+                >
+                  Join
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
