@@ -10,6 +10,8 @@ export interface StreamPublisherConfig {
   /** Process the raw mic stream (e.g. pitch shifting); its audio track gets
       published instead. The raw mic stays local for metering/mute. */
   processAudio?: (raw: MediaStream) => MediaStream;
+  /** Optional generated instrument audio, independent of microphone access. */
+  generatedAudioStream?: MediaStream;
   onConnectionStateChange?: (state: RTCPeerConnectionState) => void;
   onError?: (err: Error) => void;
 }
@@ -73,6 +75,9 @@ export class WebRTCPublisher {
       publishTracks.push(processed.getAudioTracks()[0] ?? rawAudio[0]);
     } else {
       publishTracks.push(...rawAudio);
+    }
+    if (this.config.generatedAudioStream) {
+      publishTracks.push(...this.config.generatedAudioStream.getAudioTracks());
     }
     publishTracks.forEach((track) => {
       if (this.localStream && this.pc) {

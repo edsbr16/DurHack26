@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "prepreview": "next build --webpack",
+    "preview": "node scripts/preview.mjs"
   },
   "dependencies": {
     "lucide-react": "^1.73.0",

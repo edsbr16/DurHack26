@@ -1,3 +1,7 @@
+# Natural Composition artwork
+
+See [SENSOR_ARTWORK.md](SENSOR_ARTWORK.md) for the sensor artwork and preview instructions.
+
 # DurHack26 — Real-Time Central WebRTC Camera & Audio Streaming Platform
 
 A real-time media application that allows anyone to connect with their smartphone via a web browser and stream their camera and microphone feeds directly to a central Python backend server, similar to Zoom or Google Meet.

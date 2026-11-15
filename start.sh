@@ -23,12 +23,12 @@ start_backend() {
 }
 
 start_frontend() {
-  echo "==> Starting Next.js Frontend on http://0.0.0.0:3000..."
+  echo "==> Starting Next.js Frontend on http://0.0.0.0:4000/DurHack26..."
   cd frontend
   if [ ! -d "node_modules" ]; then
     npm install
   fi
-  npm run dev -- -H 0.0.0.0 -p 3000
+  npm run dev -- -H 0.0.0.0 -p 4000
 }
 
 case "$MODE" in

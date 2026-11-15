@@ -61,9 +61,8 @@ export const BackendSettingsModal: React.FC<BackendSettingsModalProps> = ({
         </div>
 
         <p className="text-xs text-ink-soft mb-5 leading-relaxed">
-          Specify the central FastAPI backend URL. By default, it auto-detects your
-          current host on port 8000. If you are using Cloudflare Tunnel, ngrok, or a
-          remote IP, enter it below.
+          Specify the central FastAPI backend URL. The default is
+          https://durhack26.tend-to.dev. Enter another URL below to use a different backend.
         </p>
 
         <form onSubmit={handleSave} className="space-y-4">
@@ -91,7 +90,7 @@ export const BackendSettingsModal: React.FC<BackendSettingsModalProps> = ({
               className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-ink-soft hover:text-ink transition-colors"
             >
               <RotateCcw className="w-3.5 h-3.5" aria-hidden="true" />
-              Reset auto
+              Reset default
             </button>
 
             <div className="flex items-center gap-2">
