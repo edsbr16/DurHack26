@@ -1,15 +1,14 @@
 "use client";
 import { useEffect, useRef, useState } from 'react';
-import { WebRTCPublisher } from '../lib/webrtc';
-import { getBackendWsUrl } from '../lib/config';
+import { HandCameraPublisher } from '../lib/handCamera';
 import { FINGERS, analyseFingers, emptyTracking, type FingerTracking, type FingerVisual } from '../lib/fingerGestures';
 import { createFingerSynth, type FingerSynth } from '../lib/fingerSynth';
 
-type Session = { publisher:WebRTCPublisher; socket:WebSocket|null; timer:ReturnType<typeof setTimeout>|null; watchdog:ReturnType<typeof setInterval>|null; closed:boolean };
+type Session = { publisher:HandCameraPublisher; socket:WebSocket|null; timer:ReturnType<typeof setTimeout>|null; watchdog:ReturnType<typeof setInterval>|null; closed:boolean };
 const noteChoices=[['C4',261.63],['D4',293.66],['E4',329.63],['F4',349.23],['G4',392],['A4',440],['B4',493.88],['C5',523.25]] as const;
 const connections=[[0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[5,9],[9,10],[10,11],[11,12],[9,13],[13,14],[14,15],[15,16],[13,17],[17,18],[18,19],[19,20],[0,17]];
 
-export function GestureCamera({room,visualRef}:{room:string;visualRef:React.RefObject<FingerVisual>}) {
+export function GestureCamera({visualRef}:{room:string;visualRef:React.RefObject<FingerVisual>}) {
   const video=useRef<HTMLVideoElement|null>(null);
   const overlay=useRef<HTMLCanvasElement|null>(null);
   const tracking=useRef<FingerTracking>(emptyTracking());
@@ -82,34 +81,23 @@ export function GestureCamera({room,visualRef}:{room:string;visualRef:React.RefO
     if(!navigator.mediaDevices?.getUserMedia){setError('Camera access needs HTTPS or localhost in a supported browser.');setStarting(false);return;}
     try {
       synth.current=createFingerSynth();synth.current.setNotes(notes.current);
-      const id=`studio-${crypto.randomUUID().slice(0,8)}`;
-      const publisher=new WebRTCPublisher({streamId:id,clientName:'Individual art studio',room:room==='PUBLIC'?undefined:room,facingMode:'user',audioEnabled:false,videoEnabled:true,generatedAudioStream:synth.current.outputStream,
+      const publisher=new HandCameraPublisher({
+        onTracking:message=>{
+          lastEvent.current=Date.now();landmarks.current=message.hand?message.landmarks:null;
+          if(message.available===false)setError('Hand tracking is unavailable on the backend. Check MediaPipe installation.');
+          apply(analyseFingers(message.hand,message.landmarks,tracking.current));
+        },
         onConnectionStateChange:state=>{
           if(session.current?.publisher!==publisher)return;
           if(state==='connected')setStatus('Camera connected · show a hand');
           if(state==='failed'||state==='disconnected'||state==='closed'){apply(emptyTracking());setStatus('Camera disconnected');if(state==='failed')setError('Video connection failed. Stop, then start the camera again.');}
         }});
       const s:Session={publisher,socket:null,timer:null,watchdog:null,closed:false};session.current=s;
-      const connect=()=>{
-        if(s.closed)return;
-        const ws=new WebSocket(`${getBackendWsUrl()}/api/ws`);s.socket=ws;
-        ws.onmessage=event=>{
-          try {
-            const message=JSON.parse(event.data);
-            if(s.closed||message.event!=='pinch_update'||message.stream_id!==id)return;
-            lastEvent.current=Date.now();landmarks.current=message.hand&&Array.isArray(message.landmarks)&&message.landmarks.length>=21?message.landmarks:null;
-            apply(analyseFingers(message.hand,message.landmarks,tracking.current));
-          }catch{ /* Ignore unrelated events. */ }
-        };
-        ws.onclose=()=>{if(s.closed)return;apply(emptyTracking());landmarks.current=null;if(!s.closed)s.timer=setTimeout(connect,2000);};
-        ws.onerror=()=>ws.close();
-      };
-      connect();
       s.watchdog=setInterval(()=>{if(Date.now()-lastEvent.current>700){apply(emptyTracking());landmarks.current=null;}},200);
       const stream=await publisher.start();
       if(s.closed||session.current!==s){publisher.stop();return;}
       if(video.current){video.current.srcObject=stream;await video.current.play();}
-      setRunning(true);setStatus('Camera ready · show your hand');
+      setRunning(true);setStatus('Tracking connected · show your whole hand');
     }catch(e){release();setRunning(false);setError(e instanceof Error?e.message:'Could not start the camera.');setStatus('Camera is off');}
     finally{setStarting(false);}
   }

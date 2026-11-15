@@ -133,3 +133,46 @@ body {
 .gesture-test-switch { display:flex; gap:7px; font-size:9px; color:#67715e; align-items:center; margin-top:14px; }.gesture-help,.gesture-permission { margin-top:10px; font-size:9px; line-height:1.7; color:#7e8477; }.gesture-permission { font-size:8px; color:#989e91; }.gesture-error { font-size:10px; line-height:1.7; padding:10px; margin-top:12px; background:#f1e2da; color:#954a34; }
 .studio-environment { border-top:1px solid #cbd1c0; padding-top:15px; }.studio-environment summary { font-size:11px; color:#5b6651; cursor:pointer; }.studio-environment .studio-panel-head { margin-top:20px; }
 @media(min-width:1051px) { .studio-layout { grid-template-columns:minmax(0,1fr) 340px; }.studio-panel:has(.gesture-camera) { border-top:0; padding-top:0; } }
+
+/* Code-invited collective rooms: the artwork owns the screen. */
+.room-stage{position:relative;min-height:100svh;background:#101525;color:#fff8e9;overflow:hidden;font-family:Arial,sans-serif}
+.room-stage>.artwork-canvas{position:absolute;inset:0;width:100%;height:100%;min-height:100svh}
+.room-stage>canvas{position:absolute;inset:0;width:100%;height:100%;min-height:100svh}
+.room-header{position:relative;z-index:2;display:flex;align-items:center;justify-content:space-between;padding:24px 32px;background:linear-gradient(#07111cd9,transparent);gap:18px}
+.room-header>a{color:inherit;text-decoration:none;font-size:13px}
+.room-header>div{display:flex;flex-direction:column;align-items:center;gap:7px}
+.room-header>div>span{font-size:9px;letter-spacing:3px;color:#dbd4bd}
+.room-header strong{font-size:27px;letter-spacing:8px;font-weight:400}
+.room-stage button{cursor:pointer;background:#122633de;border:1px solid #fff5d733;color:#fff8e9;border-radius:8px;padding:10px 14px;font-size:12px}
+.room-stage button:hover{background:#284654}
+.room-stage button:disabled{opacity:.4;cursor:default}
+.room-stage button:focus-visible,.room-stage select:focus-visible,.room-stage a:focus-visible{outline:2px solid #ffdab0;outline-offset:4px}
+.room-presence{position:relative;z-index:1;display:flex;gap:9px;align-items:flex-start;margin:18px 32px;width:max-content;max-width:calc(100% - 64px);padding:12px 16px;background:#0a1927bb;border:1px solid #ffffff18;border-radius:9px}
+.room-presence>span{margin-top:5px;width:7px;height:7px;border-radius:50%;background:#d6a56b}
+.room-presence>span.room-online{background:#91cfb9;box-shadow:0 0 10px #91cfb955}
+.room-presence p{margin:0;font-size:12px;line-height:1.4}
+.room-presence small{display:block;font-size:10px;color:#c3c8cc;margin-top:5px}
+.room-actions{position:absolute;bottom:28px;left:32px;z-index:2;display:flex;gap:10px}
+.room-self{position:relative;z-index:2;margin:24px 24px 24px auto;width:292px;border:1px solid #fff5d733;border-radius:14px;background:#0d1d2be8;box-shadow:0 20px 80px #0005;padding:12px}
+.room-self-heading{display:flex;justify-content:space-between;align-items:center;padding:1px 1px 11px}
+.room-self-heading strong{font-size:12px;font-weight:400}.room-self-heading span{font-size:7px;letter-spacing:1px;color:#b6c5c9}
+.room-local-video{position:relative;aspect-ratio:4/3;border-radius:7px;overflow:hidden;background:#142837}
+.room-local-video>video,.room-local-video>canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:fill;transform:scaleX(-1)}
+.room-local-video>div{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;background:#122735}
+.room-local-video>div>span{font-size:35px;color:#d3b989}.room-local-video p{font-size:12px;margin:14px 0 5px}.room-local-video small{font-size:10px;color:#b4c1c6}
+.room-camera-actions{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:10px 0}
+.room-camera-actions label{font-size:9px;color:#ccd6d9;display:flex;align-items:center;gap:5px}
+.room-stage select{background:#183240;color:#fff8e9;border:1px solid #ffffff30;border-radius:5px;font-size:11px;padding:6px}
+.room-self details{border-top:1px solid #fff2;padding:10px 0 0}.room-self summary{cursor:pointer;font-size:11px}.room-self details p{font-size:10px;line-height:1.5;color:#bfcbcf}
+.room-pads{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.room-pads>div{display:flex;flex-direction:column;gap:6px}.room-pads button{padding:10px 0;font-size:10px;touch-action:none;user-select:none;border-color:var(--finger-colour)}.room-pads button.active{background:var(--finger-colour);color:#0c1823}
+.room-privacy{font-size:9px;line-height:1.6;color:#a8b8c0;margin:10px 0 0}
+.room-error{position:relative;z-index:3;margin:20px 32px;background:#482f2fe8;border:1px solid #ca9f80;border-radius:8px;padding:14px;max-width:440px;font-size:13px}.room-error a{display:block;color:#ffdcba;margin-top:10px}
+@media(min-width:900px){.room-self{position:absolute;right:0;bottom:0;max-height:calc(100svh - 150px);overflow:auto}.room-stage{height:100svh}}
+@media(max-width:600px){.room-header{padding:18px 16px;gap:8px}.room-header>div>span{font-size:7px;letter-spacing:1px}.room-header strong{font-size:21px;letter-spacing:4px}.room-header>a{font-size:10px}.room-header button{font-size:10px;padding:8px}.room-presence{margin:10px 16px;max-width:calc(100% - 32px)}.room-self{margin:32svh 16px 85px auto;width:246px}.room-actions{left:16px;bottom:22px}}
+.room-self{width:350px}.room-self-heading button{font-size:10px;padding:6px 8px}.room-self-expanded{width:min(640px,calc(100vw - 48px))}.room-tracking-hint{font-size:11px;line-height:1.5;color:#e6d5b2;margin:8px 0 12px}.room-local-video>canvas{pointer-events:none}.room-sensors{position:relative;z-index:2;margin:12px 32px;width:280px;background:#0d1d2be8;border:1px solid #fff3;border-radius:10px;padding:14px;font-size:12px}.room-sensors summary{cursor:pointer}.room-sensors label{display:flex;align-items:center;gap:8px;margin-top:12px;text-transform:capitalize}.room-sensors select{max-width:210px}.room-sensors p{font-size:10px;line-height:1.6;color:#bfcbcf;margin-top:12px}@media(max-width:600px){.room-self{width:calc(100% - 32px);margin-top:20svh}.room-self-expanded{width:calc(100% - 16px);margin-left:8px;margin-right:8px}.room-sensors{margin-left:16px;max-width:calc(100% - 32px)}}
+
+.camera-mirrored>video,.camera-mirrored>canvas{transform:scaleX(-1)}.camera-unmirrored>video,.camera-unmirrored>canvas{transform:none}
+
+.room-local-video>video{object-fit:contain}
+
+.studio-room-error{padding:14px 18px;margin-bottom:16px;border:1px solid #c48b70;background:#f2e4db;color:#713b28;font-size:14px}.studio-header button:disabled,.studio-foot button:disabled,.mosaic-room-dialog button:disabled{opacity:.5;cursor:default}

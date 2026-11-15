@@ -6,6 +6,7 @@ import { MosaicCanvas } from './MosaicCanvas';
 import { BackendSettingsModal } from './BackendSettingsModal';
 import { getBackendUrl } from '../lib/config';
 import { TILE_COUNT, type MosaicFeed } from '../lib/mosaic';
+import {createArtRoom,checkArtRoom,validRoomCode} from '../lib/rooms';
 import type { ArtworkState } from '../lib/artwork';
 
 function MosaicContent() {
@@ -18,6 +19,8 @@ function MosaicContent() {
   const [settings, setSettings] = useState(false);
   const [roomsOpen, setRoomsOpen] = useState(false);
   const [code, setCode] = useState('');
+  const [roomBusy, setRoomBusy] = useState(false);
+  const [roomError, setRoomError] = useState('');
   const [state, setState] = useState<ArtworkState | null>(null);
   const [status, setStatus] = useState('Connecting to live inputs');
   const [notice, setNotice] = useState('');
@@ -60,7 +63,19 @@ function MosaicContent() {
       link.href=canvas.current!.toDataURL('image/png'); link.click(); setNotice('');
     } catch { setNotice('Could not capture this canvas. Try another browser.'); }
   }
-  function createRoom() { setRoomsOpen(false); router.push(`/?room=${crypto.randomUUID().slice(0,6).toUpperCase()}`); }
+  async function createRoom() {
+    setRoomBusy(true); setRoomError('');
+    try {
+      router.push(`/room?code=${encodeURIComponent(await createArtRoom())}`);
+    } catch(e) {setRoomError(e instanceof Error?e.message:'Room backend unavailable');}
+    finally {setRoomBusy(false);}
+  }
+  async function joinRoom(){
+    if(roomBusy)return;setRoomBusy(true);setRoomError('');
+    try{router.push(`/room?code=${encodeURIComponent(await checkArtRoom(code))}`);}
+    catch(e){setRoomError(e instanceof Error?e.message:'Could not check room');}
+    finally{setRoomBusy(false);}
+  }
   return <main className="mosaic-home">
     <MosaicCanvas canvasRef={canvas} feed={feed} populated={populated} paused={paused} locate={locate} />
     <div className="mosaic-top-shade" aria-hidden="true" />
@@ -69,6 +84,7 @@ function MosaicContent() {
       <Link className="mosaic-brand" href="/"><span className="mosaic-mark" aria-hidden="true"><i/><i/><i/><i/></span><span>Natural<br />Composition</span></Link>
       <div className="mosaic-space"><span className="mosaic-live-dot" />{room === 'PUBLIC' ? 'THE PUBLIC MOSAIC' : `ROOM / ${room}`}</div>
       <nav aria-label="Mosaic navigation">
+        <Link className="mosaic-studio-link" href="/dashboard">Your square ↗</Link>
         <button className="mosaic-nav-button" onClick={() => setRoomsOpen(true)}>Rooms <span aria-hidden="true">＋</span></button>
       </nav>
     </header>
@@ -86,7 +102,7 @@ function MosaicContent() {
       {notice && <p className="mosaic-notice" role="alert">{notice}</p>}
     </aside>
     <footer className="mosaic-footer"><span>AN ARTWORK MADE OF US</span><span>{populated ? 'DEMO DATA IS GENERATED LOCALLY · NO CAMERA IMAGERY' : 'LIVE SENSOR DATA ONLY'}</span><span>DURHACK / 2026</span></footer>
-    {roomsOpen && <div className="mosaic-room-backdrop" onClick={e => {if(e.target===e.currentTarget)setRoomsOpen(false);}}><section role="dialog" aria-modal="true" aria-labelledby="mosaic-room-title" className="mosaic-room-dialog"><button className="mosaic-close" aria-label="Close rooms" onClick={() => setRoomsOpen(false)}>×</button><p className="mosaic-kicker">A SPACE TO CREATE TOGETHER</p><h2 id="mosaic-room-title">Your own corner<br />of the mosaic.</h2><p>Invite your group to a separate canvas, or return to the public composition.</p><button className="mosaic-room-create" onClick={createRoom}>Create a room ↗</button><form onSubmit={e => {e.preventDefault();if(code.trim()){setRoomsOpen(false);router.push(`/?room=${encodeURIComponent(code.trim().toUpperCase())}`);}}}><label htmlFor="mosaic-room-code">Have a room code?</label><div><input id="mosaic-room-code" maxLength={32} placeholder="Enter code" value={code} onChange={e=>setCode(e.target.value)} /><button type="submit">Join →</button></div></form><Link href="/" onClick={() => setRoomsOpen(false)}>Back to the public mosaic</Link></section></div>}
+    {roomsOpen && <div className="mosaic-room-backdrop" onClick={e => {if(e.target===e.currentTarget)setRoomsOpen(false);}}><section role="dialog" aria-modal="true" aria-labelledby="mosaic-room-title" className="mosaic-room-dialog"><button className="mosaic-close" aria-label="Close rooms" onClick={() => setRoomsOpen(false)}>×</button><p className="mosaic-kicker">A SPACE TO CREATE TOGETHER</p><h2 id="mosaic-room-title">Your own corner<br />of the mosaic.</h2><p>Create a room, share its code, and shape one artwork together. Your camera preview stays in your corner.</p><button className="mosaic-room-create" disabled={roomBusy} onClick={createRoom}>{roomBusy?'Creating…':'Create a room ↗'}</button><form onSubmit={e => {e.preventDefault();void joinRoom();}}><label htmlFor="mosaic-room-code">Have a room code?</label><div><input id="mosaic-room-code" minLength={6} maxLength={6} required placeholder="Six-character code" value={code} onChange={e=>setCode(e.target.value)} /><button type="submit" disabled={roomBusy||!validRoomCode(code)}>{roomBusy?'Checking…':'Join →'}</button></div></form>{roomError&&<p role="alert">{roomError}</p>}<Link href="/" onClick={() => setRoomsOpen(false)}>Back to the public mosaic</Link></section></div>}
     <BackendSettingsModal isOpen={settings} onClose={() => setSettings(false)} />
   </main>;
 }

@@ -2,6 +2,7 @@
 import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
+import {createArtRoom,checkArtRoom,validRoomCode} from "../lib/rooms";
 import { GestureCamera } from "./GestureCamera";
 import { emptyFingers, type FingerVisual } from "../lib/fingerGestures";
 import { ArtworkCanvas } from "./ArtworkCanvas";
@@ -27,6 +28,8 @@ function Composition() {
   const [copied, setCopied] = useState(false);
   const [joinCode, setJoinCode] = useState("");
   const [notice, setNotice] = useState("");
+  const [roomBusy,setRoomBusy]=useState(false);
+  const [roomError,setRoomError]=useState("");
   const gestures = useRef<FingerVisual>(emptyFingers());
   const inputs = useRef<VisualInputs>({ ...idleVisual });
   const clock = useRef({ offset: 0, epoch: 0 });
@@ -64,7 +67,18 @@ function Composition() {
       colour: [1, 3, 5].map(i => parseInt(colour.slice(i, i + 2), 16) / 255) as [number, number, number], gesture: pinch,
     } : state?.visual || { ...idleVisual };
   }, [demo, sound, distance, lux, colour, pinch, state]);
-  function createRoom() { router.push(`/?room=${crypto.randomUUID().slice(0, 6).toUpperCase()}`); }
+  async function createRoom() {
+    if(roomBusy)return;setRoomBusy(true);setRoomError('');
+    try {router.push(`/room?code=${encodeURIComponent(await createArtRoom())}`);}
+    catch(e){setRoomError(e instanceof Error?e.message:'Room backend unavailable');}
+    finally{setRoomBusy(false);}
+  }
+  async function joinRoom() {
+    if(roomBusy)return;setRoomBusy(true);setRoomError('');
+    try {router.push(`/room?code=${encodeURIComponent(await checkArtRoom(joinCode))}`);}
+    catch(e){setRoomError(e instanceof Error?e.message:'Could not check room');}
+    finally{setRoomBusy(false);}
+  }
   async function copyInvite() {
     try { await navigator.clipboard.writeText(window.location.href); setCopied(true); setTimeout(() => setCopied(false), 2000); }
     catch { setNotice("Could not copy. Share the browser address instead."); }
@@ -84,10 +98,11 @@ function Composition() {
   return <div className="studio">
     <header className="studio-header">
       <Link href="/" className="studio-brand"><span aria-hidden="true">◌</span> Natural Composition</Link>
-      <nav aria-label="Artwork spaces"><Link href="/" aria-current={room === "PUBLIC" ? "page" : undefined}>Public mosaic</Link><button onClick={createRoom}>Create room ↗</button></nav>
+      <nav aria-label="Artwork spaces"><Link href="/" aria-current={room === "PUBLIC" ? "page" : undefined}>Public mosaic</Link><button disabled={roomBusy} onClick={createRoom}>{roomBusy?"Connecting…":"Create room ↗"}</button></nav>
       <button className="studio-button" onClick={() => setSettings(true)}>Connection</button>
     </header>
     <main className="studio-main">
+      {roomError&&<p role="alert" className="studio-room-error">{roomError}</p>}
       <div className="studio-title"><div><p className="studio-eyebrow">A COLLECTIVE ENVIRONMENTAL INSTRUMENT</p><h1>{room === "PUBLIC" ? "Your corner of the world." : `Composition / ${room}`}</h1></div><p className="studio-intro">Colour becomes atmosphere. Sound becomes movement.<br />A shared artwork, shaped by the spaces we inhabit.</p></div>
       <div className="studio-layout">
         <section className="art-stage" aria-label="Shared artwork">
@@ -109,7 +124,7 @@ function Composition() {
       </div>
       <div className="studio-toolbar"><div className="studio-actions"><button className="studio-button primary" onClick={capture}>Capture artwork ↓</button><button className="studio-button" onClick={() => setPaused(p => !p)}>{paused ? "Resume" : "Pause"}</button><button className="studio-button" onClick={copyInvite}>{copied ? "Link copied" : "Invite to canvas ↗"}</button></div><span className="studio-muted">{demo ? "Local preview · not sent to the shared canvas" : `${state?.devices || 0} connected sensor devices · ${room === "PUBLIC" ? "Everyone contributes" : "Room contributions only"}`}</span></div>
       {notice && <p role="alert">{notice}</p>}
-      <section className="studio-foot"><div><h2>Make something together.</h2><p className="studio-muted">The public canvas blends everyone’s inputs. Each room has its own composition.</p></div><form onSubmit={e => { e.preventDefault(); if (joinCode.trim()) router.push(`/?room=${encodeURIComponent(joinCode.trim().toUpperCase())}`); }}><label htmlFor="join-art-room" className="sr-only">Room code</label><input id="join-art-room" placeholder="Enter room code" maxLength={32} value={joinCode} onChange={e => setJoinCode(e.target.value)} /><button className="studio-button" type="submit">Join room →</button></form><Link href={`/stream${room !== "PUBLIC" ? `?room=${encodeURIComponent(room)}` : ""}`} className="studio-muted">Connect gesture camera ↗</Link></section>
+      <section className="studio-foot"><div><h2>Make something together.</h2><p className="studio-muted">The public canvas blends everyone’s inputs. Each room has its own composition.</p></div><form onSubmit={e => { e.preventDefault(); void joinRoom(); }}><label htmlFor="join-art-room" className="sr-only">Room code</label><input id="join-art-room" placeholder="Six-character room code" minLength={6} maxLength={6} required value={joinCode} onChange={e => setJoinCode(e.target.value)} /><button className="studio-button" type="submit" disabled={roomBusy||!validRoomCode(joinCode)}>{roomBusy?"Checking…":"Join room →"}</button></form></section>
       <footer className="studio-footer"><span>NATURAL COMPOSITION</span><span>DURHACK 2026 · AN EXPERIMENT IN SHARED PRESENCE</span></footer>
     </main>
     <BackendSettingsModal isOpen={settings} onClose={() => setSettings(false)} />
