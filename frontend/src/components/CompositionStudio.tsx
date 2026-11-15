@@ -33,6 +33,7 @@ function Composition() {
   const gestures = useRef<FingerVisual>(emptyFingers());
   const inputs = useRef<VisualInputs>({ ...idleVisual });
   const clock = useRef({ offset: 0, epoch: 0 });
+  const patternSeed = useRef(0);
   const canvas = useRef<HTMLCanvasElement | null>(null);
   useEffect(() => {
     let stopped = false;
@@ -67,6 +68,20 @@ function Composition() {
       colour: [1, 3, 5].map(i => parseInt(colour.slice(i, i + 2), 16) / 255) as [number, number, number], gesture: pinch,
     } : state?.visual || { ...idleVisual };
   }, [demo, sound, distance, lux, colour, pinch, state]);
+  useEffect(() => {
+    // A room view uses the room's shared seed so everyone draws the same
+    // pattern. The personal space keeps one local pattern per browser.
+    const shared = state?.pattern?.seed;
+    if (shared != null) { patternSeed.current = shared; return; }
+    if (room !== "PUBLIC") return;
+    try {
+      const stored = parseFloat(localStorage.getItem("natural-composition-pattern") || "");
+      if (Number.isFinite(stored)) { patternSeed.current = stored; return; }
+    } catch { /* Storage unavailable: the pattern lasts this visit. */ }
+    const generated = crypto.getRandomValues(new Uint32Array(1))[0] / 2 ** 32;
+    patternSeed.current = generated;
+    try { localStorage.setItem("natural-composition-pattern", String(generated)); } catch { /* Ignore */ }
+  }, [state, room]);
   async function createRoom() {
     if(roomBusy)return;setRoomBusy(true);setRoomError('');
     try {router.push(`/room?code=${encodeURIComponent(await createArtRoom())}`);}
@@ -89,6 +104,12 @@ function Composition() {
       a.href = canvas.current!.toDataURL("image/png"); a.click(); setNotice("");
     } catch { setNotice("Could not capture the artwork in this browser."); }
   }
+  function randomizePattern() {
+    // The personal space is yours alone: re-roll this browser's local pattern.
+    const generated = crypto.getRandomValues(new Uint32Array(1))[0] / 2 ** 32;
+    patternSeed.current = generated;
+    try { localStorage.setItem("natural-composition-pattern", String(generated)); } catch { /* Ignore */ }
+  }
   const rows = [
     { title: "Sound", hint: "Ripple strength & fluid movement", value: sound, set: setSound, min: 0, max: 1, step: .01, reading: demo ? `${Math.round(sound * 100)}%` : state?.devices ? `${Math.round(state.raw.sound)} raw` : "—" },
     { title: "Distance", hint: "Close in to expand the pattern", value: distance, set: setDistance, min: 10, max: 120, step: 1, reading: demo ? `${distance} cm` : state?.raw.distanceCm != null ? `${state.raw.distanceCm.toFixed(0)} cm` : "—" },
@@ -106,7 +127,7 @@ function Composition() {
       <div className="studio-title"><div><p className="studio-eyebrow">A COLLECTIVE ENVIRONMENTAL INSTRUMENT</p><h1>{room === "PUBLIC" ? "Your corner of the world." : `Composition / ${room}`}</h1></div><p className="studio-intro">Colour becomes atmosphere. Sound becomes movement.<br />A shared artwork, shaped by the spaces we inhabit.</p></div>
       <div className="studio-layout">
         <section className="art-stage" aria-label="Shared artwork">
-          <ArtworkCanvas inputs={inputs} clock={clock} paused={paused} canvasRef={canvas} gestureInput={gestures} />
+          <ArtworkCanvas inputs={inputs} clock={clock} paused={paused} canvasRef={canvas} gestureInput={gestures} seed={patternSeed} />
           <div className="art-topline"><span className="art-label">{room === "PUBLIC" ? "PUBLIC COMPOSITION" : `ROOM ${room}`}</span><span className="art-label">{demo ? "LOCAL PREVIEW" : connection.toUpperCase()}</span></div>
           <div className="art-bottomline"><span>{paused ? "Paused on this screen" : demo ? "Explore the controls. This preview is only yours." : "An original image, generated from environmental data."}</span><span>NC / 001</span></div>
         </section>
@@ -122,7 +143,7 @@ function Composition() {
           </details>
         </aside>
       </div>
-      <div className="studio-toolbar"><div className="studio-actions"><button className="studio-button primary" onClick={capture}>Capture artwork ↓</button><button className="studio-button" onClick={() => setPaused(p => !p)}>{paused ? "Resume" : "Pause"}</button><button className="studio-button" onClick={copyInvite}>{copied ? "Link copied" : "Invite to canvas ↗"}</button></div><span className="studio-muted">{demo ? "Local preview · not sent to the shared canvas" : `${state?.devices || 0} connected sensor devices · ${room === "PUBLIC" ? "Everyone contributes" : "Room contributions only"}`}</span></div>
+      <div className="studio-toolbar"><div className="studio-actions"><button className="studio-button primary" onClick={capture}>Capture artwork ↓</button>{room === "PUBLIC" && <button className="studio-button" onClick={randomizePattern}>Randomize pattern ⟳</button>}<button className="studio-button" onClick={() => setPaused(p => !p)}>{paused ? "Resume" : "Pause"}</button><button className="studio-button" onClick={copyInvite}>{copied ? "Link copied" : "Invite to canvas ↗"}</button></div><span className="studio-muted">{demo ? "Local preview · not sent to the shared canvas" : `${state?.devices || 0} connected sensor devices · ${room === "PUBLIC" ? "Everyone contributes" : "Room contributions only"}`}</span></div>
       {notice && <p role="alert">{notice}</p>}
       <section className="studio-foot"><div><h2>Make something together.</h2><p className="studio-muted">The public canvas blends everyone’s inputs. Each room has its own composition.</p></div><form onSubmit={e => { e.preventDefault(); void joinRoom(); }}><label htmlFor="join-art-room" className="sr-only">Room code</label><input id="join-art-room" placeholder="Six-character room code" minLength={6} maxLength={6} required value={joinCode} onChange={e => setJoinCode(e.target.value)} /><button className="studio-button" type="submit" disabled={roomBusy||!validRoomCode(joinCode)}>{roomBusy?"Checking…":"Join room →"}</button></form></section>
       <footer className="studio-footer"><span>NATURAL COMPOSITION</span><span>DURHACK 2026 · AN EXPERIMENT IN SHARED PRESENCE</span></footer>
