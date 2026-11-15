@@ -17,3 +17,4 @@ web/reference/
 venv/
 DurhackKey
 /.durhack-update-backups/
+backup/

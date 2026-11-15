@@ -46,6 +46,7 @@ THUMB_TIP, INDEX_TIP, WRIST, MIDDLE_MCP = 4, 8, 0, 9
 DETECT_INTERVAL = 0.08  # ~12Hz per stream
 
 _landmarker = None
+_image_landmarker = None
 _last_ts = 0
 _detect_warned = False
 
@@ -81,10 +82,24 @@ def _get_landmarker():
     return _landmarker
 
 
+def _get_image_landmarker():
+    # Room/studio cameras are separate JPEG sequences. VIDEO mode's shared
+    # temporal history mixes different participants' hands; detect independently.
+    global _image_landmarker
+    if _image_landmarker is None:
+        _image_landmarker = HandLandmarker.create_from_options(
+            HandLandmarkerOptions(base_options=BaseOptions(model_asset_path=str(_ensure_model())),
+                                  running_mode=RunningMode.IMAGE, num_hands=1,
+                                  min_hand_detection_confidence=.4,
+                                  min_hand_presence_confidence=.4))
+    return _image_landmarker
+
+
 class HandTracker:
     """Per-stream pinch state over the shared landmarker."""
 
-    def __init__(self):
+    def __init__(self, independent=False):
+        self.independent = independent
         self.present = False
         self.pinch = 0.0
         self.pinching = False
@@ -106,7 +121,8 @@ class HandTracker:
             # Image container — a raw ndarray dies on a `_image_ptr` AttributeError.
             _last_ts = max(_last_ts + 1, int(time.monotonic() * 1000))
             image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
-            hands = _get_landmarker().detect_for_video(image, _last_ts).hand_landmarks
+            hands = (_get_image_landmarker().detect(image) if self.independent else
+                     _get_landmarker().detect_for_video(image, _last_ts)).hand_landmarks
         except Exception as e:
             if not _detect_warned:
                 _detect_warned = True

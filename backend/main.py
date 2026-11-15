@@ -223,3 +223,7 @@ async def shutdown_event():
 # Environmental sensor artwork endpoints
 from sensor_routes import router as sensor_router
 app.include_router(sensor_router)
+
+# Private shared artwork rooms
+from room_routes import router as room_router
+app.include_router(room_router)
