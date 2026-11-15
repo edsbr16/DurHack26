@@ -9,7 +9,7 @@ import {emptyFingers,FINGERS,type FingerVisual} from '../lib/fingerGestures';
 import {createRoomAudio,type RoomVoice} from '../lib/roomAudio';
 
 type SensorSettings={source:'all'|'room'|'off';enabled:Record<string,boolean>};
-type RoomState={sensor_settings:SensorSettings;code:string;epoch:number;server_time:number;participants:RoomVoice[];fingers:FingerVisual;environment:ArtworkState};
+type RoomState={sensor_settings:SensorSettings;code:string;epoch:number;server_time:number;participants:RoomVoice[];fingers:FingerVisual;environment:ArtworkState;pattern?:{seed:number};host?:string};
 const scale=['C','D','E','G','A'];
 function Room() {
   const params=useSearchParams();const code=(params.get('code')||'').trim().toUpperCase();
@@ -18,11 +18,14 @@ function Room() {
   const [notes,setNotes]=useState([0,2,3,4]),[octave,setOctave]=useState(0),[pressed,setPressed]=useState([false,false,false,false]);
   const [ownPressure,setOwnPressure]=useState<number[]>([0,0,0,0]);
   const [online,setOnline]=useState(false);
+  const [isHost,setIsHost]=useState(false);
   const [largeCamera,setLargeCamera]=useState(false),[handFound,setHandFound]=useState(false);
   const video=useRef<HTMLVideoElement|null>(null),overlay=useRef<HTMLCanvasElement|null>(null),canvas=useRef<HTMLCanvasElement|null>(null);
   const socket=useRef<WebSocket|null>(null),media=useRef<MediaStream|null>(null),capture=useRef<HTMLCanvasElement|null>(null);
   const audio=useRef<ReturnType<typeof createRoomAudio>|null>(null),people=useRef<RoomVoice[]>([]);
   const fingers=useRef(emptyFingers()),inputs=useRef<VisualInputs>({...idleVisual}),clock=useRef({offset:0,epoch:0});
+  const patternSeed=useRef(0);
+  const myId=useRef('');
   const choices=useRef({notes,octave,pressed});
   const cameraGeneration=useRef(0);
   useEffect(()=>{choices.current={notes,octave,pressed};},[notes,octave,pressed]);
@@ -35,10 +38,13 @@ function Room() {
       if(!/^[A-HJ-NP-Z2-9]{6}$/.test(code)){setError('Enter a valid six-character room code from the home page.');setStatus('Room code needed');return;}
       setStatus('Joining room…');
       try{
-        const response=await fetch(`${getBackendUrl()}/api/rooms/join`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code}),signal:controller.signal});
+        let hostKey:string|null=null;
+        try{hostKey=sessionStorage.getItem(`room-host-${code}`);}catch{/* Storage blocked: this tab joins without host controls. */}
+        const response=await fetch(`${getBackendUrl()}/api/rooms/join`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(hostKey?{code,host_key:hostKey}:{code}),signal:controller.signal});
         const joined=await response.json();
         if(!response.ok)throw new Error(joined.detail||'Could not join room');
         if(stopped)return;
+        myId.current=typeof joined.member_id==='string'?joined.member_id:'';
         const ws=new WebSocket(`${getBackendWsUrl()}/api/rooms/${code}/ws`);current=ws;socket.current=ws;
         ws.onopen=()=>{lastSnapshot=Date.now();if(stopped){ws.close();return;}ws.send(JSON.stringify({token:joined.token}));setStatus('Connected · make something together');setError('');setOnline(true);};
         ws.onmessage=e=>{
@@ -48,6 +54,8 @@ function Room() {
             if(data.event==='room_state'){
               lastSnapshot=Date.now();setStatus('Connected · make something together');setState(data);people.current=data.participants;audio.current?.update(data.participants);
               fingers.current=data.fingers;clock.current={offset:data.server_time-Date.now()/1000,epoch:data.epoch};
+              if(typeof data.pattern?.seed==='number')patternSeed.current=data.pattern.seed;
+              setIsHost(typeof data.host==='string'&&data.host===myId.current);
               const visual=data.environment.visual;
               inputs.current={...visual,sound:data.sensor_settings?.enabled.sound===false?0:Math.max(visual.sound,Math.min(1,data.environment.raw.sound/32))};
             } else if(data.event==='tracking'){
@@ -99,12 +107,13 @@ function Room() {
   function toggleSound(){try{if(listen){audio.current?.dispose();audio.current=null;setListen(false);}else{audio.current=createRoomAudio();audio.current.enable();audio.current.update(people.current);setListen(true);}}catch{setError('Could not start audio. Try again in another browser.');}}
   async function invite(){try{await navigator.clipboard.writeText(window.location.href);setCopied(true);setTimeout(()=>setCopied(false),2000);}catch{setError(`Share room code ${code} or the address in your browser.`);}}
   function save(){try{const a=document.createElement('a');a.download=`room-${code}-${Date.now()}.png`;a.href=canvas.current!.toDataURL('image/png');a.click();}catch{setError('Capture unavailable in this browser.');}}
+  function randomizePattern(){socket.current?.send(JSON.stringify({event:'pattern'}));}
   return <main className="room-stage">
-    <ArtworkCanvas inputs={inputs} clock={clock} paused={false} canvasRef={canvas} gestureInput={fingers}/>
+    <ArtworkCanvas inputs={inputs} clock={clock} paused={false} canvasRef={canvas} gestureInput={fingers} seed={patternSeed}/>
     <header className="room-header"><Link href="/">← Leave room</Link><div><span>SHARED COMPOSITION</span><strong>{code}</strong></div><button onClick={invite}>{copied?'Copied!':'Copy invite ↗'}</button></header>
     <section className="room-presence"><span className={online?'room-online':''}/><p>{status}<small>{online?`${state?.participants.length||1} participant${state?.participants.length===1?'':'s'} · ${state?.environment.devices||0} connected sensors`:'Your notes are silent while disconnected'}</small></p></section>
     <section className="room-sensors" aria-label="Shared sensor controls"><details><summary>Sensors · {state?.environment.devices||0} connected</summary><label>Source<select aria-label="Room sensor source" disabled={!online} value={state?.sensor_settings?.source||'all'} onChange={e=>socket.current?.send(JSON.stringify({event:'sensors',source:e.target.value}))}><option value="all">All connected sensors</option><option value="room">Assigned to this room</option><option value="off">Sensors off</option></select></label><p>Shared setting · changes apply to everyone in this room.</p>{['sound','distance','light','colour'].map(key=><label key={key}><input type="checkbox" disabled={!online} checked={state?.sensor_settings?.enabled[key]??true} onChange={e=>socket.current?.send(JSON.stringify({event:'sensors',enabled:{[key]:e.target.checked}}))}/>{key}</label>)}<p>Sound {Math.round(state?.environment.raw.sound||0)} raw · Distance {state?.environment.raw.distanceCm?.toFixed(0)??'—'} cm · Light {state?.environment.raw.lux?.toFixed(0)??'—'} lx</p></details></section>
-    <div className="room-actions"><button onClick={toggleSound} aria-pressed={listen}>{listen?'Mute room':'Listen to room ♫'}</button><button onClick={save}>Capture artwork ↓</button></div>
+    <div className="room-actions"><button onClick={toggleSound} aria-pressed={listen}>{listen?'Mute room':'Listen to room ♫'}</button><button onClick={save}>Capture artwork ↓</button>{isHost&&<button disabled={!online} onClick={randomizePattern}>Randomize pattern ⟳</button>}</div>
     <aside className={`room-self${largeCamera?' room-self-expanded':''}`} aria-label="Your camera and instrument">
       <div className="room-self-heading"><strong>Your corner</strong><button onClick={()=>setLargeCamera(v=>!v)} aria-pressed={largeCamera}>{largeCamera?'Smaller camera':'Enlarge camera'}</button></div>
       <div className="room-local-video"><video ref={video} autoPlay playsInline muted/><canvas ref={overlay}/>{!running&&<div><span>✧</span><p>{starting?'Opening camera…':'Your camera, your contribution.'}</p><small>Pinch each finger to your thumb.</small></div>}</div>
