@@ -1,1 +1,1 @@
-export { default } from "../components/CompositionStudio";
+export { default } from '../components/MosaicHome';

@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import type { FingerVisual } from "../lib/fingerGestures";
 import type { VisualInputs } from "../lib/artwork";
 
 // Original procedural image. No camera textures or frame feedback.
@@ -8,6 +9,8 @@ precision highp float;
 uniform vec2 resolution;
 uniform float time, energy, zoom, light, gesture;
 uniform vec3 tint;
+uniform vec4 fingers;
+uniform float notePitch;
 void main() {
   vec2 p = (gl_FragCoord.xy / resolution - .5) * vec2(1.5, 1.0);
   p /= zoom;
@@ -22,7 +25,10 @@ void main() {
       cos(q.x * (4. + f) - t * .6));
   }
   float wave = sin(q.x * 13. + q.y * 7. + t);
+  float density = 1. + notePitch * 2.;
   float ripple = sin(length(p) * 32. - time * 1.5) * energy;
+  ripple += fingers.x * sin(length(p) * 24. * density - time * 2.) * .65;
+  ripple += fingers.z * sin(q.x * 22. * density + q.y * 9. + t) * .75;
   float bands = .5 + .5 * sin(wave * 2.3 + q.y * 8. + ripple);
   vec3 a = vec3(.025,.04,.075);
   vec3 b = mix(vec3(.24,.30,.68), tint, .85);
@@ -31,12 +37,17 @@ void main() {
   colour = mix(colour,c,pow(bands,9.) * .8);
   float line = pow(.5 + .5 * sin(q.x * 60. + q.y * 22. + t), 28.);
   colour += line * .10 * b;
+  float grain = fract(sin(dot(floor(q * (80. + notePitch * 120.)),vec2(12.9898,78.233))) * 43758.5453);
+  colour += fingers.y * (grain - .5) * .24;
+  float sparks = pow(max(0.,sin(q.x * 65. * density) * cos(q.y * 61. * density + time)), 18.);
+  colour += fingers.w * sparks * vec3(.6,.5,.9);
   colour *= (.55 + light * .65);
   colour *= 1. - .25 * smoothstep(.15,.95,length(p * zoom));
   gl_FragColor = vec4(colour,1.);
 }`;
-export function ArtworkCanvas({ inputs, clock, paused, canvasRef }: {
+export function ArtworkCanvas({ inputs, clock, paused, canvasRef, gestureInput }: {
   inputs: React.RefObject<VisualInputs>;
+  gestureInput?: React.RefObject<FingerVisual>;
   clock: React.RefObject<{ offset: number; epoch: number }>;
   paused: boolean;
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
@@ -73,8 +84,10 @@ export function ArtworkCanvas({ inputs, clock, paused, canvasRef }: {
       gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, -1,1, 1,-1, 1,1]), gl.STATIC_DRAW);
       const position = gl.getAttribLocation(program, "position");
       gl.enableVertexAttribArray(position); gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0);
-      const uniforms = Object.fromEntries(["resolution","time","energy","zoom","light","gesture","tint"].map(n => [n, gl.getUniformLocation(program!, n)]));
+      const uniforms = Object.fromEntries(["resolution","time","energy","zoom","light","gesture","tint","fingers","notePitch"].map(n => [n, gl.getUniformLocation(program!, n)]));
       const current = { ...inputs.current, colour: [...inputs.current.colour] };
+      const fingerPressure = [0,0,0,0];
+      let notePitch = 0;
       let last = performance.now();
       function draw(now: number) {
         if (disposed) return;
@@ -96,6 +109,10 @@ export function ArtworkCanvas({ inputs, clock, paused, canvasRef }: {
         gl!.uniform1f(uniforms.light, current.brightness);
         gl!.uniform1f(uniforms.gesture, current.gesture);
         gl!.uniform3f(uniforms.tint, current.colour[0], current.colour[1], current.colour[2]);
+        for (let i=0;i<4;i++) fingerPressure[i] += ((gestureInput?.current.pressure[i] || 0) - fingerPressure[i]) * mix;
+        notePitch += ((gestureInput?.current.pitch || 0) - notePitch) * mix;
+        gl!.uniform4f(uniforms.fingers,...fingerPressure as [number,number,number,number]);
+        gl!.uniform1f(uniforms.notePitch,notePitch);
         gl!.drawArrays(gl!.TRIANGLES, 0, 6);
       }
       frame = requestAnimationFrame(draw);
@@ -109,6 +126,6 @@ export function ArtworkCanvas({ inputs, clock, paused, canvasRef }: {
       if (buffer) gl.deleteBuffer(buffer);
       if (program) gl.deleteProgram(program);
     };
-  }, [canvasRef, clock, inputs]);
+  }, [canvasRef, clock, inputs, gestureInput]);
   return <><canvas ref={canvasRef} className="composition-canvas" aria-label="Generative artwork responding to environmental sensors" />{error && <div role="alert" className="art-error">{error}</div>}</>;
 }

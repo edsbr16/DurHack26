@@ -2,6 +2,8 @@
 import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
+import { GestureCamera } from "./GestureCamera";
+import { emptyFingers, type FingerVisual } from "../lib/fingerGestures";
 import { ArtworkCanvas } from "./ArtworkCanvas";
 import { BackendSettingsModal } from "./BackendSettingsModal";
 import { getBackendUrl } from "../lib/config";
@@ -25,6 +27,7 @@ function Composition() {
   const [copied, setCopied] = useState(false);
   const [joinCode, setJoinCode] = useState("");
   const [notice, setNotice] = useState("");
+  const gestures = useRef<FingerVisual>(emptyFingers());
   const inputs = useRef<VisualInputs>({ ...idleVisual });
   const clock = useRef({ offset: 0, epoch: 0 });
   const canvas = useRef<HTMLCanvasElement | null>(null);
@@ -81,24 +84,27 @@ function Composition() {
   return <div className="studio">
     <header className="studio-header">
       <Link href="/" className="studio-brand"><span aria-hidden="true">◌</span> Natural Composition</Link>
-      <nav aria-label="Artwork spaces"><Link href="/" aria-current={room === "PUBLIC" ? "page" : undefined}>Public canvas</Link><button onClick={createRoom}>Create room ↗</button></nav>
+      <nav aria-label="Artwork spaces"><Link href="/" aria-current={room === "PUBLIC" ? "page" : undefined}>Public mosaic</Link><button onClick={createRoom}>Create room ↗</button></nav>
       <button className="studio-button" onClick={() => setSettings(true)}>Connection</button>
     </header>
     <main className="studio-main">
-      <div className="studio-title"><div><p className="studio-eyebrow">A COLLECTIVE ENVIRONMENTAL INSTRUMENT</p><h1>{room === "PUBLIC" ? "The world, in motion." : `Composition / ${room}`}</h1></div><p className="studio-intro">Colour becomes atmosphere. Sound becomes movement.<br />A shared artwork, shaped by the spaces we inhabit.</p></div>
+      <div className="studio-title"><div><p className="studio-eyebrow">A COLLECTIVE ENVIRONMENTAL INSTRUMENT</p><h1>{room === "PUBLIC" ? "Your corner of the world." : `Composition / ${room}`}</h1></div><p className="studio-intro">Colour becomes atmosphere. Sound becomes movement.<br />A shared artwork, shaped by the spaces we inhabit.</p></div>
       <div className="studio-layout">
         <section className="art-stage" aria-label="Shared artwork">
-          <ArtworkCanvas inputs={inputs} clock={clock} paused={paused} canvasRef={canvas} />
+          <ArtworkCanvas inputs={inputs} clock={clock} paused={paused} canvasRef={canvas} gestureInput={gestures} />
           <div className="art-topline"><span className="art-label">{room === "PUBLIC" ? "PUBLIC COMPOSITION" : `ROOM ${room}`}</span><span className="art-label">{demo ? "LOCAL PREVIEW" : connection.toUpperCase()}</span></div>
           <div className="art-bottomline"><span>{paused ? "Paused on this screen" : demo ? "Explore the controls. This preview is only yours." : "An original image, generated from environmental data."}</span><span>NC / 001</span></div>
         </section>
         <aside className="studio-panel">
+          <GestureCamera key={room} room={room} visualRef={gestures} />
+          <details className="studio-environment"><summary>Environment & preview controls</summary>
           <div className="studio-panel-head"><span className={`status-dot ${state?.devices && !demo ? "active" : ""}`} /><span aria-live="polite">{demo ? "Simulated inputs" : connection}</span></div>
           <h2>Your environment,<br /><em>translated.</em></h2>
           <p className="studio-muted">{demo ? "Move a slider to discover how an input shapes the image." : "Connected Arduino readings flow into this composition automatically."}</p>
           <label className="demo-switch"><span>Try simulated inputs</span><input type="checkbox" checked={demo} onChange={e => setDemo(e.target.checked)} /></label>
           <div className="input-row"><div><span>Colour</span>{demo ? <input aria-label="Simulated colour" type="color" value={colour} onChange={e => setColour(e.target.value)} /> : <span className="colour-swatch" style={{ background: `rgb(${(state?.visual.colour || idleVisual.colour).map(v => Math.round(v * 255)).join(",")})` }} />}</div><p>The palette of your surroundings</p></div>
           {rows.map(row => <div className="input-row" key={row.title}><div><span>{row.title}</span><strong>{row.reading}</strong></div><p>{row.hint}</p>{demo && <input aria-label={`Simulated ${row.title.toLowerCase()}`} type="range" min={row.min} max={row.max} step={row.step} value={row.value} onChange={e => row.set(+e.target.value)} />}</div>)}
+          </details>
         </aside>
       </div>
       <div className="studio-toolbar"><div className="studio-actions"><button className="studio-button primary" onClick={capture}>Capture artwork ↓</button><button className="studio-button" onClick={() => setPaused(p => !p)}>{paused ? "Resume" : "Pause"}</button><button className="studio-button" onClick={copyInvite}>{copied ? "Link copied" : "Invite to canvas ↗"}</button></div><span className="studio-muted">{demo ? "Local preview · not sent to the shared canvas" : `${state?.devices || 0} connected sensor devices · ${room === "PUBLIC" ? "Everyone contributes" : "Room contributions only"}`}</span></div>

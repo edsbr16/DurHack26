@@ -1,2 +1,2 @@
-// Keep existing shared links working. The canonical artwork lives at /.
+// Individual block studio; the public mosaic is the homepage.
 export { default } from "../../components/CompositionStudio";
