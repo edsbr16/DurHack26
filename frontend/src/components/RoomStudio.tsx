@@ -3,6 +3,7 @@ import {Suspense,useEffect,useRef,useState} from 'react';
 import Link from 'next/link';
 import {useSearchParams} from 'next/navigation';
 import {ArtworkCanvas} from './ArtworkCanvas';
+import {ShareQr} from './ShareQr';
 import {getBackendUrl,getBackendWsUrl} from '../lib/config';
 import {idleVisual,type ArtworkState,type VisualInputs} from '../lib/artwork';
 import {emptyFingers,FINGERS,type FingerVisual} from '../lib/fingerGestures';
@@ -15,6 +16,7 @@ function Room() {
   const params=useSearchParams();const code=(params.get('code')||'').trim().toUpperCase();
   const [state,setState]=useState<RoomState|null>(null),[status,setStatus]=useState('Joining room…'),[error,setError]=useState('');
   const [running,setRunning]=useState(false),[starting,setStarting]=useState(false),[listen,setListen]=useState(false),[copied,setCopied]=useState(false);
+  const [qrOpen,setQrOpen]=useState(false);
   const [notes,setNotes]=useState([0,2,3,4]),[octave,setOctave]=useState(0),[pressed,setPressed]=useState([false,false,false,false]);
   const [ownPressure,setOwnPressure]=useState<number[]>([0,0,0,0]);
   const [online,setOnline]=useState(false);
@@ -109,8 +111,8 @@ function Room() {
   function save(){try{const a=document.createElement('a');a.download=`room-${code}-${Date.now()}.png`;a.href=canvas.current!.toDataURL('image/png');a.click();}catch{setError('Capture unavailable in this browser.');}}
   function randomizePattern(){socket.current?.send(JSON.stringify({event:'pattern'}));}
   return <main className="room-stage">
-    <ArtworkCanvas inputs={inputs} clock={clock} paused={false} canvasRef={canvas} gestureInput={fingers} seed={patternSeed}/>
-    <header className="room-header"><Link href="/">← Leave room</Link><div><span>SHARED COMPOSITION</span><strong>{code}</strong></div><button onClick={invite}>{copied?'Copied!':'Copy invite ↗'}</button></header>
+    <ArtworkCanvas inputs={inputs} clock={clock} paused={false} canvasRef={canvas} gestureInput={fingers}/>
+    <header className="room-header"><Link href="/">← Leave room</Link><div><span>SHARED COMPOSITION</span><strong>{code}</strong></div><div className="room-header-actions"><button onClick={invite}>{copied?'Copied!':'Copy invite ↗'}</button><button onClick={()=>setQrOpen(true)}>QR code ⧉</button></div></header>
     <section className="room-presence"><span className={online?'room-online':''}/><p>{status}<small>{online?`${state?.participants.length||1} participant${state?.participants.length===1?'':'s'} · ${state?.environment.devices||0} connected sensors`:'Your notes are silent while disconnected'}</small></p></section>
     <section className="room-sensors" aria-label="Shared sensor controls"><details><summary>Sensors · {state?.environment.devices||0} connected</summary><label>Source<select aria-label="Room sensor source" disabled={!online} value={state?.sensor_settings?.source||'all'} onChange={e=>socket.current?.send(JSON.stringify({event:'sensors',source:e.target.value}))}><option value="all">All connected sensors</option><option value="room">Assigned to this room</option><option value="off">Sensors off</option></select></label><p>Shared setting · changes apply to everyone in this room.</p>{['sound','distance','light','colour'].map(key=><label key={key}><input type="checkbox" disabled={!online} checked={state?.sensor_settings?.enabled[key]??true} onChange={e=>socket.current?.send(JSON.stringify({event:'sensors',enabled:{[key]:e.target.checked}}))}/>{key}</label>)}<p>Sound {Math.round(state?.environment.raw.sound||0)} raw · Distance {state?.environment.raw.distanceCm?.toFixed(0)??'—'} cm · Light {state?.environment.raw.lux?.toFixed(0)??'—'} lx</p></details></section>
     <div className="room-actions"><button onClick={toggleSound} aria-pressed={listen}>{listen?'Mute room':'Listen to room ♫'}</button><button onClick={save}>Capture artwork ↓</button>{isHost&&<button disabled={!online} onClick={randomizePattern}>Randomize pattern ⟳</button>}</div>
@@ -121,6 +123,7 @@ function Room() {
       <p className="room-tracking-hint" aria-live="polite">{running?(handFound?'Hand tracked · touch a fingertip to your thumb':'Show your whole hand · keep wrist and fingertips in view'):'Camera is off · you can also use the finger pads'}</p><details><summary>Finger notes & pads</summary><p>Touch a finger to your thumb, or hold a pad with the camera off. Everyone plays C major pentatonic.</p><div className="room-pads">{FINGERS.map((f,i)=><div key={f.name}><button disabled={running||!online} className={(running?ownPressure[i]>0:pressed[i])?'active':''} style={{'--finger-colour':f.colour} as React.CSSProperties} onPointerDown={e=>{e.currentTarget.setPointerCapture(e.pointerId);setPressed(p=>p.map((v,j)=>j===i?true:v));}} onPointerUp={()=>setPressed(p=>p.map((v,j)=>j===i?false:v))} onPointerCancel={()=>setPressed(p=>p.map((v,j)=>j===i?false:v))} onLostPointerCapture={()=>setPressed(p=>p.map((v,j)=>j===i?false:v))} onKeyDown={e=>{if(e.key===' '||e.key==='Enter'){e.preventDefault();setPressed(p=>p.map((v,j)=>j===i?true:v));}}} onKeyUp={()=>setPressed(p=>p.map((v,j)=>j===i?false:v))} onBlur={()=>setPressed(p=>p.map((v,j)=>j===i?false:v))}>{f.name}</button><select aria-label={`${f.name} room note`} value={notes[i]} onChange={e=>setNotes(p=>p.map((v,j)=>i===j?+e.target.value:v))}>{scale.map((n,j)=><option key={n} value={j}>{n}</option>)}</select></div>)}</div></details>
       <p className="room-privacy">Camera frames go to your backend for hand tracking. Other participants receive only gesture values and musical notes. No microphone audio is sent.</p>
     </aside>
+    {qrOpen&&<div className="room-qr-backdrop" onClick={e=>{if(e.target===e.currentTarget)setQrOpen(false);}}><section role="dialog" aria-modal="true" aria-labelledby="room-qr-title" className="room-qr-dialog"><button className="room-qr-close" aria-label="Close QR code" onClick={()=>setQrOpen(false)}>×</button><p className="room-qr-kicker">SCAN TO JOIN · ROOM {code}</p><div className="room-qr-frame"><ShareQr size={216} level="M" title={`Join room ${code}`}/></div><h2 id="room-qr-title">Point a phone camera at the code.</h2><p className="room-qr-hint">It opens this room — code <strong>{code}</strong>. No app needed.</p></section></div>}
     {error&&<div className="room-error" role="alert">{error}<Link href="/">Back to home</Link></div>}
   </main>;
 }

@@ -64,6 +64,54 @@ class RoomRouteTests(unittest.TestCase):
             self.assertEqual(data['environment']['devices'], 0)
         sensor_state.devices.clear()
 
+    def test_pattern_seed_is_broadcast_stable_and_unique_per_room(self):
+        code, token = self.create_join()
+        other, _ = self.create_join()
+        with self.client.websocket_connect(f'/api/rooms/{code}/ws') as ws:
+            ws.send_json({'token': token})
+            data = self.until(ws, lambda d: 'pattern' in d)
+            seed = data['pattern']['seed']
+            self.assertGreaterEqual(seed, 0.)
+            self.assertLess(seed, 1.)
+            ws.send_json({'event': 'sensors', 'source': 'off'})
+            data = self.until(ws, lambda d: d['sensor_settings']['source'] == 'off')
+            self.assertEqual(data['pattern']['seed'], seed)
+        self.assertNotEqual(room_routes.store.rooms[other].seed, seed)
+
+    def test_artwork_response_carries_the_rooms_pattern_seed(self):
+        import sensor_routes
+        app = FastAPI()
+        app.include_router(sensor_routes.router)
+        client = TestClient(app)
+        code, _ = self.create_join()
+        data = client.get(f'/api/artwork?room={code}').json()
+        self.assertEqual(data['pattern']['seed'], room_routes.store.rooms[code].seed)
+        # The public composition has no pattern seed of its own.
+        self.assertIsNone(client.get('/api/artwork').json().get('pattern'))
+
+    def test_only_host_can_randomize_the_room_pattern(self):
+        created = self.client.post('/api/rooms').json()
+        code, key = created['code'], created['host_key']
+        self.assertTrue(key)
+        host = self.client.post('/api/rooms/join', json={'code': code, 'host_key': key}).json()
+        guest = self.client.post('/api/rooms/join', json={'code': code}).json()
+        with self.client.websocket_connect(f'/api/rooms/{code}/ws') as whost:
+            whost.send_json({'token': host['token']})
+            whost.receive_json()
+            with self.client.websocket_connect(f'/api/rooms/{code}/ws') as wguest:
+                wguest.send_json({'token': guest['token']})
+                data = self.until(wguest, lambda d: 'pattern' in d)
+                seed = data['pattern']['seed']
+                self.assertEqual(data['host'], host['member_id'])
+                wguest.send_json({'event': 'pattern'})
+                for _ in range(3):
+                    self.assertEqual(wguest.receive_json()['pattern']['seed'], seed)
+                self.assertEqual(room_routes.store.rooms[code].seed, seed)
+                whost.send_json({'event': 'pattern'})
+                data = self.until(wguest, lambda d: d['pattern']['seed'] != seed)
+                self.assertNotEqual(data['pattern']['seed'], seed)
+                self.assertEqual(data['host'], host['member_id'])
+
     def test_room_lookup_rejects_unknown_without_allocating_members(self):
         code = self.client.post('/api/rooms').json()['code']
         self.assertEqual(self.client.get(f'/api/rooms/{code}').json()['code'], code)
