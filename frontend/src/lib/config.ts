@@ -5,11 +5,9 @@ export function getBackendUrl(): string {
     if (process.env.NEXT_PUBLIC_BACKEND_URL) {
       return process.env.NEXT_PUBLIC_BACKEND_URL.trim();
     }
-    const hostname = window.location.hostname || "localhost";
-    const protocol = window.location.protocol === "https:" ? "https:" : "http:";
-    return `${protocol}//${hostname}:8000`;
+    return "https://durhack26.tend-to.dev";
   }
-  return process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+  return process.env.NEXT_PUBLIC_BACKEND_URL || "https://durhack26.tend-to.dev";
 }
 
 export function getBackendWsUrl(): string {

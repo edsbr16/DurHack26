@@ -1,0 +1,4 @@
+
+.sensor-route-backups/
+__pycache__/
+venv/

@@ -219,3 +219,7 @@ async def shutdown_event():
     logger.info("Server shutting down, closing all peer connections...")
     for stream_id in list(stream_manager.streams.keys()):
         await stream_manager.remove_stream(stream_id)
+
+# Environmental sensor artwork endpoints
+from sensor_routes import router as sensor_router
+app.include_router(sensor_router)

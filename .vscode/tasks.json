@@ -1,0 +1,42 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Arduino: Build App Lab update package",
+      "type": "process",
+      "command": "python3",
+      "args": [
+        "${workspaceFolder}/arduino/package_app.py"
+      ],
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      }
+    },
+    {
+      "label": "Arduino: Open board SSH terminal",
+      "type": "process",
+      "command": "ssh",
+      "args": [
+        "-o",
+        "ConnectTimeout=5",
+        "${input:arduinoHost}"
+      ],
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "focus": true
+      }
+    }
+  ],
+  "inputs": [
+    {
+      "id": "arduinoHost",
+      "type": "promptString",
+      "description": "UNO Q SSH target (use the current IP shown in App Lab Settings)",
+      "default": "arduino@10.168.153.208"
+    }
+  ]
+}
