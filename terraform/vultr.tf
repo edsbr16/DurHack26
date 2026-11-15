@@ -101,13 +101,6 @@ resource "vultr_firewall_rule" "allow_443" {
   notes             = "Allow HTTPs"
 }
 
-resource "vultr_reserved_ip" "reserved_ip" {
-  label       = "${var.vultr_tag}Ipv4"
-  region      = var.vultr_region
-  ip_type     = "v4"
-  instance_id = vultr_instance.web.id
-}
-
 resource "vultr_instance" "web" {
   plan                = var.vultr_plan_web
   region              = var.vultr_region
@@ -115,7 +108,7 @@ resource "vultr_instance" "web" {
   label               = "${var.vultr_tag}Web"
   tags                = [var.vultr_tag]
   firewall_group_id   = vultr_firewall_group.firewall_web.id
-  enable_ipv6         = false
+  enable_ipv6         = true
   vpc_ids             = [vultr_vpc.vpc.id]
   disable_public_ipv4 = true
   backups             = "disabled"

@@ -19,3 +19,4 @@ DurhackKey
 /.durhack-update-backups/
 backup/
 DuckhackKey
+*.tfstate*
