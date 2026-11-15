@@ -40,6 +40,51 @@ class RoomTests(unittest.TestCase):
         snap = self.store.snapshot(room, {token})
         self.assertEqual(snap['fingers']['pressure'], [0, 0, 0, 0])
 
+    def test_pattern_seed_is_set_once_and_shared_by_snapshot(self):
+        a, b = self.store.create(), self.store.create()
+        for room in (a, b):
+            self.assertGreaterEqual(room.seed, 0.)
+            self.assertLess(room.seed, 1.)
+            self.assertEqual(self.store.snapshot(room, {})['pattern']['seed'], room.seed)
+        self.assertNotEqual(a.seed, b.seed)
+        self.now += 60
+        self.assertEqual(self.store.snapshot(a, {})['pattern']['seed'], a.seed)
+
+    def test_host_key_grants_host_and_reseed_rotates_pattern(self):
+        room = self.store.create()
+        _, _, guest = self.store.join(room.code)
+        self.assertNotEqual(room.host_id, guest.id)
+        _, _, host = self.store.join(room.code, room.host_key)
+        self.assertEqual(room.host_id, host.id)
+        _, _, wrong = self.store.join(room.code, 'not-the-key')
+        self.assertEqual(room.host_id, host.id)
+        seed = room.seed
+        self.store.reseed(room)
+        self.assertNotEqual(room.seed, seed)
+        self.assertGreaterEqual(room.seed, 0.)
+        self.assertLess(room.seed, 1.)
+
+    def test_rehost_passes_to_earliest_member_when_host_leaves(self):
+        room = self.store.create()
+        _, ta, first = self.store.join(room.code)
+        _, tb, host = self.store.join(room.code, room.host_key)
+        _, tc, third = self.store.join(room.code)
+        self.assertEqual(room.host_id, host.id)
+        room.members.pop(tb)
+        self.store.rehost(room)
+        self.assertEqual(room.host_id, first.id)
+        room.members.pop(ta)
+        self.store.rehost(room)
+        self.assertEqual(room.host_id, third.id)
+        room.members.pop(tc)
+        self.store.rehost(room)
+        self.assertEqual(room.host_id, '')
+
+    def test_snapshot_names_the_host(self):
+        room = self.store.create()
+        _, _, member = self.store.join(room.code, room.host_key)
+        self.assertEqual(self.store.snapshot(room, {})['host'], member.id)
+
     def test_idle_room_expiry_and_capacity(self):
         room = self.store.create()
         for _ in range(16): self.store.join(room.code)

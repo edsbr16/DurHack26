@@ -3,6 +3,7 @@ import { Suspense, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { MosaicCanvas } from './MosaicCanvas';
+import { ShareQr } from './ShareQr';
 import { BackendSettingsModal } from './BackendSettingsModal';
 import { getBackendUrl } from '../lib/config';
 import { TILE_COUNT, type MosaicFeed } from '../lib/mosaic';
@@ -101,6 +102,7 @@ function MosaicContent() {
       <div className="mosaic-tools"><button onClick={() => setPaused(v => !v)}>{paused ? '▶ Resume' : 'Ⅱ Pause'}</button><button disabled={!hasLive} onClick={() => setLocate(v => !v)} aria-pressed={locate}>{locate ? 'Hide marker' : 'Find live tile'}</button><button onClick={capture}>Capture ↓</button></div>
       {notice && <p className="mosaic-notice" role="alert">{notice}</p>}
     </aside>
+    <aside className="mosaic-qr" aria-label="Scan to open this site on a phone"><ShareQr size={84} level="L" title="Open this site on this device" /><span>SCAN TO OPEN</span></aside>
     <footer className="mosaic-footer"><span>AN ARTWORK MADE OF US</span><span>{populated ? 'DEMO DATA IS GENERATED LOCALLY · NO CAMERA IMAGERY' : 'LIVE SENSOR DATA ONLY'}</span><span>DURHACK / 2026</span></footer>
     {roomsOpen && <div className="mosaic-room-backdrop" onClick={e => {if(e.target===e.currentTarget)setRoomsOpen(false);}}><section role="dialog" aria-modal="true" aria-labelledby="mosaic-room-title" className="mosaic-room-dialog"><button className="mosaic-close" aria-label="Close rooms" onClick={() => setRoomsOpen(false)}>×</button><p className="mosaic-kicker">A SPACE TO CREATE TOGETHER</p><h2 id="mosaic-room-title">Your own corner<br />of the mosaic.</h2><p>Create a room, share its code, and shape one artwork together. Your camera preview stays in your corner.</p><button className="mosaic-room-create" disabled={roomBusy} onClick={createRoom}>{roomBusy?'Creating…':'Create a room ↗'}</button><form onSubmit={e => {e.preventDefault();void joinRoom();}}><label htmlFor="mosaic-room-code">Have a room code?</label><div><input id="mosaic-room-code" minLength={6} maxLength={6} required placeholder="Six-character code" value={code} onChange={e=>setCode(e.target.value)} /><button type="submit" disabled={roomBusy||!validRoomCode(code)}>{roomBusy?'Checking…':'Join →'}</button></div></form>{roomError&&<p role="alert">{roomError}</p>}<Link href="/" onClick={() => setRoomsOpen(false)}>Back to the public mosaic</Link></section></div>}
     <BackendSettingsModal isOpen={settings} onClose={() => setSettings(false)} />

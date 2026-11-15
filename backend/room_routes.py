@@ -3,6 +3,7 @@ import asyncio
 import base64
 import io
 import time
+from typing import Optional
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, Field
 from room_state import RoomStore, finger_pressure
@@ -14,19 +15,20 @@ last_broadcast = {}
 
 class JoinRequest(BaseModel):
     code: str = Field(min_length=6, max_length=6)
+    host_key: Optional[str] = Field(default=None, max_length=64)
 
 @router.post('/api/rooms')
 async def create_room():
     try:
         room = store.create()
-        return {'code': room.code, 'epoch': room.epoch}
+        return {'code': room.code, 'epoch': room.epoch, 'host_key': room.host_key}
     except ValueError as e:
         raise HTTPException(429, str(e))
 
 @router.post('/api/rooms/join')
 async def join_room(body: JoinRequest):
     try:
-        room, token, member = store.join(body.code)
+        room, token, member = store.join(body.code, body.host_key)
         return {'code': room.code, 'token': token, 'member_id': member.id}
     except KeyError as e:
         raise HTTPException(404, str(e.args[0]))
@@ -108,6 +110,9 @@ async def room_socket(ws: WebSocket, code: str):
             if not isinstance(data, dict):
                 continue
             member.seen = room.touched = store.clock()
+            if data.get('event') == 'pattern' and member.id == room.host_id:
+                # Host-only: give everyone in the room a fresh shared pattern.
+                store.reseed(room)
             if data.get('event') == 'sensors':
                 if data.get('source') in ('all', 'room', 'off'):
                     room.sensor_source = data['source']
@@ -158,6 +163,7 @@ async def room_socket(ws: WebSocket, code: str):
         if room and sockets.get(room.code, {}).get(token) is ws:
             sockets[room.code].pop(token, None)
             room.members.pop(token, None)
+            store.rehost(room)
             await broadcast(room, True)
             if not sockets[room.code]:
                 sockets.pop(room.code, None)

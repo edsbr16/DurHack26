@@ -118,6 +118,9 @@ body {
 .mosaic-tools { display:flex; align-items:center; justify-content:space-between; gap:8px; padding-top:14px; border-top:1px solid #d5dfca26; }.mosaic-tools button { font-size:9px; color:#e8eddbc9; cursor:pointer; padding:4px 0; }.mosaic-tools button:hover { color:#fff8e5; }.mosaic-tools button:disabled { opacity:.35; cursor:default; }
 .mosaic-notice { font-size:10px; color:#f6bfa2; margin-top:10px; }
 .mosaic-footer { position:absolute; bottom:0; left:3.5vw; right:3.5vw; padding:23px 0; border-top:1px solid #e4e7d326; display:flex; justify-content:space-between; gap:18px; font-size:7px; letter-spacing:1.5px; color:#d8dfcb75; }
+.mosaic-qr { position:absolute; top:118px; right:3.5vw; z-index:3; display:flex; flex-direction:column; align-items:center; gap:8px; padding:9px; background:#0f2228bf; border:1px solid #edf2dc30; backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); }
+.mosaic-qr span { font-size:7px; letter-spacing:1.5px; color:#d8dfcb75; }
+@media(max-width:650px) { .mosaic-qr { top:104px; right:22px; } }
 .mosaic-room-backdrop { position:fixed; inset:0; z-index:50; background:#071519aa; backdrop-filter:blur(8px); display:flex; align-items:center; justify-content:center; padding:20px; }
 .mosaic-room-dialog { position:relative; width:min(100%,420px); background:#152e33; border:1px solid #e4e7d333; padding:38px; box-shadow:0 25px 100px #0005; }
 .mosaic-close { position:absolute; right:17px; top:11px; font-size:25px; color:#dfe7d399; cursor:pointer; }.mosaic-room-dialog h2 { font-family:Georgia,serif; font-size:37px; letter-spacing:-1px; line-height:1.1; margin:24px 0 17px; }.mosaic-room-dialog>p:not(.mosaic-kicker) { font-size:12px; color:#dfe7d399; line-height:1.8; }
@@ -167,6 +170,15 @@ body {
 .room-pads{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.room-pads>div{display:flex;flex-direction:column;gap:6px}.room-pads button{padding:10px 0;font-size:10px;touch-action:none;user-select:none;border-color:var(--finger-colour)}.room-pads button.active{background:var(--finger-colour);color:#0c1823}
 .room-privacy{font-size:9px;line-height:1.6;color:#a8b8c0;margin:10px 0 0}
 .room-error{position:relative;z-index:3;margin:20px 32px;background:#482f2fe8;border:1px solid #ca9f80;border-radius:8px;padding:14px;max-width:440px;font-size:13px}.room-error a{display:block;color:#ffdcba;margin-top:10px}
+.room-header-actions{display:flex;gap:10px;align-items:center}
+.room-qr-backdrop{position:fixed;inset:0;z-index:50;background:#071519aa;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:20px}
+.room-qr-dialog{position:relative;width:min(100%,420px);background:#152e33;border:1px solid #e4e7d333;padding:38px;box-shadow:0 25px 100px #0005;text-align:center}
+.room-qr-dialog .room-qr-close{position:absolute;right:14px;top:8px;font-size:25px;padding:3px 10px;background:none;border:0;color:#dfe7d399}
+.room-qr-dialog .room-qr-close:hover{background:none;color:#fff8e5}
+.room-qr-kicker{font-size:8px;letter-spacing:1.7px;color:#e5e6d4b0}
+.room-qr-frame{display:inline-block;background:#fff;padding:14px;margin:20px 0 4px}
+.room-qr-dialog h2{font-family:Georgia,serif;font-weight:400;font-size:30px;letter-spacing:-1px;line-height:1.15;margin:16px 0 10px}
+.room-qr-hint{font-size:12px;color:#dfe7d399;line-height:1.8}
 @media(min-width:900px){.room-self{position:absolute;right:0;bottom:0;max-height:calc(100svh - 150px);overflow:auto}.room-stage{height:100svh}}
 @media(max-width:600px){.room-header{padding:18px 16px;gap:8px}.room-header>div>span{font-size:7px;letter-spacing:1px}.room-header strong{font-size:21px;letter-spacing:4px}.room-header>a{font-size:10px}.room-header button{font-size:10px;padding:8px}.room-presence{margin:10px 16px;max-width:calc(100% - 32px)}.room-self{margin:32svh 16px 85px auto;width:246px}.room-actions{left:16px;bottom:22px}}
 .room-self{width:350px}.room-self-heading button{font-size:10px;padding:6px 8px}.room-self-expanded{width:min(640px,calc(100vw - 48px))}.room-tracking-hint{font-size:11px;line-height:1.5;color:#e6d5b2;margin:8px 0 12px}.room-local-video>canvas{pointer-events:none}.room-sensors{position:relative;z-index:2;margin:12px 32px;width:280px;background:#0d1d2be8;border:1px solid #fff3;border-radius:10px;padding:14px;font-size:12px}.room-sensors summary{cursor:pointer}.room-sensors label{display:flex;align-items:center;gap:8px;margin-top:12px;text-transform:capitalize}.room-sensors select{max-width:210px}.room-sensors p{font-size:10px;line-height:1.6;color:#bfcbcf;margin-top:12px}@media(max-width:600px){.room-self{width:calc(100% - 32px);margin-top:20svh}.room-self-expanded{width:calc(100% - 16px);margin-left:8px;margin-right:8px}.room-sensors{margin-left:16px;max-width:calc(100% - 32px)}}

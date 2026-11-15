@@ -48,5 +48,12 @@ async def get_artwork_state(
     hands = [s.video_processor.tracker for s in streams if s.video_processor.tracker.present]
     state["visual"]["gesture"] = sum(1 - h.pinch for h in hands) / len(hands) if hands else 0
     state["hands"] = len(hands)
+    # Carry a live room's pattern seed so its dashboard view draws the same
+    # unique artwork the room itself shows. Lazy import: room_routes also
+    # reaches back for sensor_state inside its own handlers.
+    from room_routes import store as room_store
+    room = room_store.rooms.get(room_key(room))
+    if room is not None:
+        state["pattern"] = {"seed": room.seed}
     return JSONResponse(state, headers={"Cache-Control": "no-store"})
 

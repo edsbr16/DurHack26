@@ -22,6 +22,13 @@ class Room:
     members: dict = field(default_factory=dict)
     sensor_source: str = "all"
     sensors: dict = field(default_factory=lambda: {"sound": True, "distance": True, "light": True, "colour": True})
+    # Random 24-bit pattern seed: every room renders its own unique artwork.
+    # Fixed once at creation so all participants always share one pattern.
+    seed: float = 0.
+    # The creator's tab keeps the host key (returned once by POST /api/rooms);
+    # presenting it at join marks that member as the room's host.
+    host_key: str = field(default_factory=lambda: secrets.token_urlsafe(16))
+    host_id: str = ""
 
 class RoomStore:
     def __init__(self, clock=time.time):
@@ -33,6 +40,7 @@ class RoomStore:
         self.rooms = {k: r for k, r in self.rooms.items() if now-r.touched < 3600 and now-r.epoch < 21600}
         for r in self.rooms.values():
             r.members = {t: m for t, m in r.members.items() if now-m.seen < 120}
+            self.rehost(r)
 
     def create(self):
         self.prune()
@@ -42,10 +50,10 @@ class RoomStore:
         while code in self.rooms:
             code = ''.join(secrets.choice('ABCDEFGHJKLMNPQRSTUVWXYZ23456789') for _ in range(6))
         now = self.clock()
-        self.rooms[code] = Room(code, now, now)
+        self.rooms[code] = Room(code, now, now, seed=secrets.randbits(24) / 2 ** 24)
         return self.rooms[code]
 
-    def join(self, code):
+    def join(self, code, host_key=None):
         self.prune()
         room = self.rooms.get(code.strip().upper())
         if room is None:
@@ -54,8 +62,20 @@ class RoomStore:
             raise ValueError('This room is full (16 participants).')
         token = secrets.token_urlsafe(24)
         room.members[token] = Member(seen=self.clock())
+        if isinstance(host_key, str) and secrets.compare_digest(host_key, room.host_key):
+            room.host_id = room.members[token].id
         room.touched = self.clock()
         return room, token, room.members[token]
+
+    def reseed(self, room):
+        """Host-triggered: give the room a fresh pattern shared by everyone."""
+        room.seed = secrets.randbits(24) / 2 ** 24
+
+    def rehost(self, room):
+        """Keep exactly one host: when the host is gone, the earliest
+        remaining member (join order) takes over."""
+        if room.host_id not in {m.id for m in room.members.values()}:
+            room.host_id = next(iter(room.members.values())).id if room.members else ''
 
     def snapshot(self, room, connected):
         now = self.clock()
@@ -68,7 +88,8 @@ class RoomStore:
         pressure = [min(1., sum(p['pressure'][i] for p in people)) for i in range(4)]
         pitch = max((min(1., max(0., (f/261.63-1)/3)) for p in people for f, a in zip(p['frequencies'], p['pressure']) if a > 0), default=0)
         return {'event': 'room_state', 'code': room.code, 'epoch': room.epoch, 'server_time': now,
-                'participants': people, 'fingers': {'pressure': pressure, 'pitch': pitch}}
+                'participants': people, 'fingers': {'pressure': pressure, 'pitch': pitch},
+                'pattern': {'seed': room.seed}, 'host': room.host_id}
 
 
 def finger_pressure(landmarks, previous):
